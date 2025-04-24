@@ -13,7 +13,7 @@ if (!require("BioSIM", character.only = TRUE)) {
 
 library(shiny)
 library(DT)
-library(ParkageArtemis)
+library(Artemis2014)
 library(shinydashboard)
 library(shinyWidgets)
 library(ggplot2)
@@ -866,7 +866,7 @@ server <- function(input, output, session) {
                                  quote = "",
                                  encoding = "UTF-8")
 
-      # Vérifier les fichiers avec les fonctions du package ParkageArtemis
+      # Vérifier les fichiers avec les fonctions du package Artemis
       erreurs_annuel <- verifier_colonnes_ClimAn(climat_annuel)
       erreurs_mensuel <- verifier_colonnes_Clim(climat_mensuel)
 
@@ -1705,7 +1705,7 @@ server <- function(input, output, session) {
       placettes_to_use <- input$placette
     }
 
-    # Appel de la fonction Graph du package ParkageArtemis
+    # Appel de la fonction Graph du package Artemis
     Graph(
       Data = rv$resultats_simulation,
       Espece = input$espece,
