@@ -1,4 +1,16 @@
 # app.R
+
+if (!require("BioSIM", character.only = TRUE)) {
+  if (!require("remotes", character.only = TRUE)) {
+    install.packages("remotes")
+    library(remotes)
+  }
+  remotes::install_github("RNCan/BioSimClient_R")
+  library("BioSIM", character.only = TRUE)
+}
+
+
+
 library(shiny)
 library(DT)
 library(ParkageArtemis)
@@ -9,6 +21,10 @@ library(dplyr)
 library(BioSIM)
 library(ExtractMap)
 library(plotly)
+library(sf)
+library(Billonage)
+
+options(shiny.maxRequestSize = 500 * 1024^2)
 
 
 
@@ -160,7 +176,10 @@ ui <- dashboardPage(
             solidHeader = TRUE,
             DTOutput("contents")
           )
-        )
+        ),
+        div(style = "position: relative; height: 40px;",
+            actionButton("reset_button", "Réinitialiser", class = "reset-button", icon = icon("sync"))
+        ),
       ),
 
       tabItem(
@@ -632,7 +651,7 @@ server <- function(input, output, session) {
             tagList(
               radioButtons("extraction_choice", "",
                            choices = list(
-                             "Extraire les données climatiques" = "extract",
+                             "Simuler les données climatiques" = "extract",
                              "Fournir mes propres fichiers climatiques" = "upload",
                              "Ne pas utiliser de données climatiques" = "none"
                            ),
@@ -652,7 +671,7 @@ server <- function(input, output, session) {
           } else {
             radioButtons("extraction_choice", "",
                          choices = list(
-                           "Extraire les données climatiques" = "extract",
+                           "Simuler les données climatiques" = "extract",
                            "Fournir mes propres fichiers climatiques" = "upload",
                            "Ne pas utiliser de données climatiques" = "none"
                          ),
@@ -717,7 +736,7 @@ server <- function(input, output, session) {
           # Horizon
           numericInput(
             "horizon",
-            "Horizon :",
+            "Nombre d'années de simulation (multiple de 10) :",
             value = 10,
             min = 10,
             step = 10
@@ -727,7 +746,7 @@ server <- function(input, output, session) {
           radioButtons(
             "rcp",
             "Scénario RCP :",
-            choices = list("RCP45" = "RCP45"),
+            choices = list("RCP 4.5" = "RCP45", "RCP 8.5" = "RCP85"),
             selected = "RCP45"
           ),
 
@@ -1084,7 +1103,7 @@ server <- function(input, output, session) {
         style = "margin-top: 15px;",
         actionBttn(
           "extract_climate",
-          "Extraire les données climatiques",
+          "Simuler les données climatiques",
           style = "gradient",
           color = "royal",
           icon = icon("cloud-download-alt"),
@@ -1092,7 +1111,7 @@ server <- function(input, output, session) {
         ),
         p(style = "margin-top: 8px; font-size: 0.85em; color: #666; text-align: center;",
           paste0("Période: ", input$annee_depart, " - ", input$annee_depart + input$horizon - 1,
-                 " | Scénario: ", ifelse(input$rcp == "rcp45", "RCP 4.5", "RCP 8.5"))
+                 " | Scénario: ", ifelse(input$rcp == "RCP45", "RCP 4.5", "RCP 8.5"))
         )
       )
     }
@@ -1512,9 +1531,9 @@ server <- function(input, output, session) {
             )
           ),
           div(
-            style = "margin-top: 20px;",
-            downloadButton("download_resultats", "Télécharger les résultats",
-                           style = "background-color: #28a745; color: white;")
+            # style = "margin-top: 20px;",
+            # downloadButton("download_resultats", "Télécharger les résultats",
+            #                style = "background-color: #28a745; color: white;")
           )
         ),
         footer = actionButton("close_simulation", "Fermer",
