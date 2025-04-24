@@ -377,7 +377,7 @@ ui <- dashboardPage(
                           div(
                             class = "text-center mb-2",
                             downloadButton(
-                              "download_climat",
+                              "download_climat_annuel",
                               "Climat annuel",
                               style = "background-color: #29b6f6; color: white; border: none; width: 100%;"
                             )
@@ -500,7 +500,7 @@ server <- function(input, output, session) {
 
     file_input <- input[[paste0("file", ifelse(is.null(rv$fileInputId), "", rv$fileInputId))]]
 
-    req(file_input)  # Ne continue que si un fichier est chargé
+    req(file_input)
 
     # Réinitialiser les variables d'état lors du chargement d'un nouveau fichier
     rv$data_valid <- FALSE
@@ -515,10 +515,10 @@ server <- function(input, output, session) {
     output$extraction_button <- renderUI({})
     output$simulation_message <- renderUI({})
 
-    # Afficher un message de chargement
+
     showNotification("Chargement des données en cours...", type = "message", duration = 3)
 
-    # Lire le fichier
+
     df <- read.csv(file_input$datapath,
                    header = TRUE,
                    sep = ";",
@@ -540,10 +540,9 @@ server <- function(input, output, session) {
     # Combiner toutes les erreurs
     all_errors <- c(erreurs1, erreurs2)
 
-    # Vérifier la validation de l'âge moyen et stocker le résultat
+
     rv$age_moy_valid <- valide_Age_moy(data(), "ORI", "ORI")
 
-    # Mettre à jour l'état de validation
     rv$data_valid <- length(all_errors) == 0
 
     return(all_errors)
@@ -1066,7 +1065,7 @@ server <- function(input, output, session) {
 
   })
 
-  # Handlers de téléchargement des fichiers climatiques
+
   output$download_annuel <- downloadHandler(
     filename = function() {
       paste("climat_annuel_", input$annee_depart, "_", input$annee_depart + input$horizon - 1, "_", input$rcp, ".csv", sep = "")
@@ -1572,6 +1571,42 @@ server <- function(input, output, session) {
   )
 
 
+  output$download_arbres<- downloadHandler(
+    filename = function() {
+      "Donnees_Exemple_Artemis.csv"
+    },
+    content = function(file) {
+      file.copy("WWW/Donnees_Exemple.csv", file)
+    }
+  )
+
+  output$download_climat_annuel<- downloadHandler(
+    filename = function() {
+      "Donnees_ClimAn_Exemple_Artemis.csv"
+    },
+    content = function(file) {
+      file.copy("WWW/ClimAn_Exemple.csv", file)
+    }
+  )
+
+
+  output$download_climat_mensuel<- downloadHandler(
+    filename = function() {
+      "Donnees_ClimMois_Exemple_Artemis.csv"
+    },
+    content = function(file) {
+      file.copy("WWW/ClimMois_Exemple.csv", file)
+    }
+  )
+
+  output$download_guide<- downloadHandler(
+    filename = function() {
+      "Guide d'utilisation Artemis.pdf"
+    },
+    content = function(file) {
+      file.copy("WWW/Guide_Artemis.pdf", file)
+    }
+  )
 
   observeEvent(input$close_simulation, {
     removeModal()
@@ -1707,6 +1742,8 @@ server <- function(input, output, session) {
   })
 
   # Gestionnaire de téléchargement dans l'onglet Résultats
+
+
   output$download_resultats_viz <- downloadHandler(
     filename = function() {
       paste("resultats_simulation_",Sys.Date(), ".csv", sep = "")
@@ -1749,7 +1786,6 @@ server <- function(input, output, session) {
 
 
 
-  # Fermer la boîte de dialogue de simulation
   observeEvent(input$close_simulation, {
     removeModal()
 
@@ -1765,12 +1801,6 @@ server <- function(input, output, session) {
 
 
 
-
-
-  # Observer qui réagit au choix d'évolution climatique
-
-
-  # Action pour l'analyse climatique
   observeEvent(input$analyse_climat, {
     # Vérifier les paramètres
     req(input$annee_debut_analyse, input$annee_fin_analyse, input$type_analyse)
@@ -1785,7 +1815,7 @@ server <- function(input, output, session) {
       return()
     }
 
-    # Afficher un message de traitement
+
     showModal(modalDialog(
       title = "Analyse en cours",
       div(
@@ -1806,13 +1836,13 @@ server <- function(input, output, session) {
       easyClose = FALSE
     ))
 
-    # Simuler un temps de traitement
+
     Sys.sleep(3)
 
-    # Fermer la boîte de dialogue
+
     removeModal()
 
-    # Afficher un résultat d'analyse
+    # Afficher un résultat
     showModal(modalDialog(
       title = "Analyse terminée",
       div(
@@ -1839,7 +1869,7 @@ server <- function(input, output, session) {
     ))
   })
 
-  # Fermer la boîte de dialogue d'analyse
+
   observeEvent(input$close_analyse, {
     removeModal()
 
@@ -1852,12 +1882,12 @@ server <- function(input, output, session) {
       )
     })
 
-    # Mettre à jour l'état
+
     rv$extraction_completed <- TRUE
   })
 
 
-  # Ajouter cet observeEvent pour gérer la réinitialisation
+  # pour gérer la réinitialisation
   observeEvent(input$reset_button, {
     # Afficher une boîte de dialogue de confirmation
     showModal(modalDialog(
