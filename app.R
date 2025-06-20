@@ -1,4 +1,5 @@
 # app.R
+#source("dev_functions.R")
 
 if (!require("BioSIM", character.only = TRUE)) {
   if (!require("remotes", character.only = TRUE)) {
@@ -21,8 +22,10 @@ library(dplyr)
 library(BioSIM)
 library(ExtractMap)
 library(plotly)
-library(sf)
 library(Billonage)
+library(sf)
+library(OutilsDRF)
+library(data.table)
 
 options(shiny.maxRequestSize = 500 * 1024^2)
 
@@ -246,21 +249,77 @@ ui <- dashboardPage(
                          inline = TRUE),
             selectInput("Sortie",
                         label = "Choix de la sortie",
-                        choices = c("Arbre" = "arbre", "Placette" = "placette", "À l'échelle du billon"="echelle_billon")
-            ),
+                        choices = c("-- Sélectionner une option --" = "",
+                                    "Arbre" = "arbre",
+                                    "Placette" = "placette",
+                                    "À l'échelle du billon" = "echelle_billon"),
+                        selected = ""),
             conditionalPanel(
               condition = "input.Sortie == 'echelle_billon'",
-              selectInput("typeBillonnage", "Type de Billonnage :",
+              selectInput("typeBillonnage", "Type de Billonnage Pétro:",
                           choices = list("DHP_Régionalisé" = "DHP", "DHP_Provincial" = "DHP2015")
               )
             ),
 
+            conditionalPanel(
+              condition = "input.Sortie == 'echelle_billon'",
+              h5("Paramètres Sybille", style = "color: #856404; font-weight: bold; margin-top: 15px;"),
+              # DHS parameter
+              div(
+                style = "margin-bottom: 10px;",
+                numericInput("dhs_input",
+                             label = "DHS (Diamètre à hauteur de souche):",
+                             value = 0.15,
+                             min = 0.01,
+                             max = 1.0,
+                             step = 0.01)
+              ),
+              # Grade 1 parameters
+              div(
+                style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
+                h6("Grade 1", style = "color: #495057; font-weight: bold;"),
+                textInput("nom_grade1", "Nom du grade 1:", value = "sciage court"),
+                selectInput("long_grade1", "Longueur (pieds):",
+                            choices = c("Indéfini", "4", "8", "12"),
+                            selected = "8"),
+                numericInput("diam_grade1", "Diamètre au fin bout(cm):",
+                             value = 20, min = 0, max = 100, step = 0.1)
+              ),
+              # Grade 2 parameters
+              div(
+                style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
+                h6("Grade 2", style = "color: #495057; font-weight: bold;"),
+                textInput("nom_grade2", "Nom du grade 2:", value = "pate"),
+                selectInput("long_grade2", "Longueur (pieds):",
+                            choices = c("", "Indéfini", "4", "8", "12"),
+                            selected = "4"),
+                numericInput("diam_grade2", "Diamètre au fin bout(cm):",
+                             value = 8, min = 0, max = 100, step = 0.1)
+              ),
+              # Grade 3 parameters
+              div(
+                style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
+                h6("Grade 3", style = "color: #495057; font-weight: bold;"),
+                textInput("nom_grade3", "Nom du grade 3:", value = ""),
+                selectInput("long_grade3", "Longueur (pieds):",
+                            choices = c("", "Indéfini", "4", "8", "12"),
+                            selected = NULL),
+                numericInput("diam_grade3", "Diamètre au fin bout(cm):",
+                             value = NA, min = 0, max = 100, step = 0.1)
+              ),
+              div(
+                style = "margin-top: 15px; text-align: center;",
+                actionButton("calculer_billonnage",
+                             "Calculer le billonnage",
+                             style = "background-color: #28a745; color: white; width: 100%;",
+                             icon = icon("calculator"))
+              )
+            ),
             div(
               style = "margin-top: 15px;",
               downloadButton("download_resultats_custom", "Télécharger les résultats",
                              style = "background-color: #28a745; color: white; width: 100%;")
             ),
-
 
             div(
               style = "margin-top: 10px; font-size: 0.9em; color: #6c757d; font-style: italic;",
@@ -458,7 +517,6 @@ ui <- dashboardPage(
 # Serveur
 server <- function(input, output, session) {
 
-
   rv <- reactiveValues(
     data_valid = FALSE,
     extraction_choice_made = FALSE,
@@ -477,18 +535,40 @@ server <- function(input, output, session) {
     simulation_terminee = FALSE
 
   )
+
+  observe({
+    query <- parseQueryString(session$clientData$url_search)
+
+    if ("dev" %in% names(query) && file.exists("cached_simulation_results.rds")) {
+      # Load cached simulation results
+      rv$resultats_simulation <- readRDS("cached_simulation_results.rds")
+      rv$simulation_terminee <- TRUE
+
+      # Switch to results tab immediately
+      updateTabItems(session, "sidebarMenu", "results")
+
+      # Pre-select your working values for the export box
+      updateRadioButtons(session, "simplifier", selected = FALSE)
+      updateSelectInput(session, "Sortie", selected = "echelle_billon")
+      updateSelectInput(session, "typeBillonnage", selected = "DHP")
+
+      showNotification("DEV MODE: Loaded cached simulation results",
+                       type = "message", duration = 3)
+    }
+  })
+
   output$file_input_ui <- renderUI({
 
     fileInput(paste0("file", ifelse(is.null(rv$fileInputId), "", rv$fileInputId)),
               "Choisir un fichier CSV", accept = c("text/csv", "text/comma-separated-values,text/plain", ".csv"))
-    })
+  })
 
   output$menu_resultats <- renderUI({
     if (rv$simulation_terminee) {
 
       menuItem("Résultats", tabName = "results", icon = icon("chart-line"))
     } else {
-     NULL
+      NULL
     }
   })
 
@@ -1611,6 +1691,11 @@ server <- function(input, output, session) {
   observeEvent(input$close_simulation, {
     removeModal()
 
+    if (!is.null(rv$resultats_simulation)) {
+      saveRDS(rv$resultats_simulation, "cached_simulation_results.rds")
+      cat("✓ Simulation results saved for development\n")
+    }
+
     rv$simulation_terminee <- TRUE
     updateTabItems(session, "sidebarMenu", "results")
   })
@@ -1649,46 +1734,129 @@ server <- function(input, output, session) {
 
 
 
-  observeEvent(input$Sortie, {
-    if (!is.null(input$Sortie) && input$Sortie == "echelle_billon" && !is.null(rv$resultats_simulation)) {
-      req(input$typeBillonnage)
-      rv$processed_Billonage <- SortieBillonage(Data = rv$resultats_simulation, Type = input$typeBillonnage)
-    }
-  })
+  observeEvent(input$calculer_billonnage, {
+    # Vérifier SEULEMENT les paramètres de base requis pour Shiny
+    req(input$dhs_input, input$typeBillonnage, rv$resultats_simulation)
 
-  observeEvent(input$typeBillonnage, {
-    if (!is.null(input$Sortie) && input$Sortie == "echelle_billon" && !is.null(rv$resultats_simulation)) {
-      rv$processed_Billonage <- SortieBillonage(Data = rv$resultats_simulation, Type = input$typeBillonnage)
-    }
-  })
-
-  observe({
-    req(input$Sortie)
-    sortie <- input$Sortie
-    simplifier <- input$simplifier
-
-    if (is.null(sortie) || sortie == "") {
-      return()
-    } else if (is.null(rv$resultats_simulation)) {
+    # Validation minimale : s'assurer qu'au moins le nom du Grade 1 n'est pas vide
+    if(is.null(input$nom_grade1) || input$nom_grade1 == "") {
+      showNotification("Le nom du Grade 1 est obligatoire",
+                       type = "error", duration = 5)
       return()
     }
 
-    # Exécution de switch avec une valeur valide de sortie
-    switch(sortie,
+    # Afficher un indicateur de traitement
+    showNotification("Calcul du billonnage en cours...", type = "message", duration = 3)
+
+    # Conversion des types (permettre NA pour tous les grades)
+    dhs_val <- as.numeric(input$dhs_input)
+
+    # Gestion des longueurs avec menu déroulant
+    long_grade1_val <- if(is.null(input$long_grade1) || input$long_grade1 == "Indéfini") {
+      NA_real_
+    } else {
+      as.numeric(input$long_grade1)
+    }
+
+    long_grade2_val <- if(is.null(input$long_grade2) || input$long_grade2 == "Indéfini") {
+      NA_real_
+    } else {
+      as.numeric(input$long_grade2)
+    }
+
+    long_grade3_val <- if(is.null(input$long_grade3) || input$long_grade3 == "Indéfini") {
+      NA_real_
+    } else {
+      as.numeric(input$long_grade3)
+    }
+
+    # Gestion des diamètres (maintenant numericInput avec min/max)
+    diam_grade1_val <- if(is.null(input$diam_grade1) || is.na(input$diam_grade1)) {
+      NA_real_
+    } else {
+      as.numeric(input$diam_grade1)
+    }
+
+    diam_grade2_val <- if(is.null(input$diam_grade2) || is.na(input$diam_grade2)) {
+      NA_real_
+    } else {
+      as.numeric(input$diam_grade2)
+    }
+
+    diam_grade3_val <- if(is.null(input$diam_grade3) || is.na(input$diam_grade3)) {
+      NA_real_
+    } else {
+      as.numeric(input$diam_grade3)
+    }
+
+    # Gestion des noms (avec valeurs par défaut)
+    nom_grade1_val <- as.character(input$nom_grade1) # Valeur par défaut "sciage court" définie dans l'UI
+
+    nom_grade2_val <- if(is.null(input$nom_grade2) || input$nom_grade2 == "") {
+      NA_character_
+    } else {
+      as.character(input$nom_grade2) # Valeur par défaut "pate" définie dans l'UI
+    }
+
+    nom_grade3_val <- if(is.null(input$nom_grade3) || input$nom_grade3 == "") {
+      NA_character_
+    } else {
+      as.character(input$nom_grade3)
+    }
+
+    # Exécuter SortieBillesFusion - laisser la fonction faire sa propre validation
+    tryCatch({
+      rv$processed_Billonage <- SortieBillesFusion(
+        Data = rv$resultats_simulation,
+        Type = as.character(input$typeBillonnage),
+        dhs = dhs_val,
+        nom_grade1 = nom_grade1_val,
+        long_grade1 = long_grade1_val,
+        diam_grade1 = diam_grade1_val,
+        nom_grade2 = nom_grade2_val,
+        long_grade2 = long_grade2_val,
+        diam_grade2 = diam_grade2_val,
+        nom_grade3 = nom_grade3_val,
+        long_grade3 = long_grade3_val,
+        diam_grade3 = diam_grade3_val
+      )
+
+      # Mettre à jour processed_Simul immédiatement
+      rv$processed_Simul <- rv$processed_Billonage
+      showNotification("Billonnage calculé avec succès!", type = "message", duration = 3)
+    }, error = function(e) {
+      cat("✗ Erreur billonnage:", e$message, "\n")
+      # L'erreur de calcul_vol_bille sera affichée à l'utilisateur
+      showNotification(paste("Erreur:", e$message), type = "error", duration = 5)
+      rv$processed_Billonage <- NULL
+      rv$processed_Simul <- NULL
+    })
+  })
+
+  observeEvent(c(input$Sortie, input$simplifier), {
+    req(input$Sortie, rv$resultats_simulation)
+
+    switch(input$Sortie,
            "arbre" = {
-             rv$processed_Simul <- SortieArbre(SimulHtVol = rv$resultats_simulation, simplifier = simplifier)
+             rv$processed_Simul <- SortieArbre(SimulHtVol = rv$resultats_simulation,
+                                               simplifier = input$simplifier)
            },
            "placette" = {
-             rv$processed_Simul <- Sortieplacette(SimulHtVol = rv$resultats_simulation, simplifier = simplifier)
+             rv$processed_Simul <- SortiePlacette(SimulHtVol = rv$resultats_simulation,
+                                                  simplifier = input$simplifier)
            },
            "echelle_billon" = {
-             rv$processed_Simul <- rv$processed_Billonage
-           },
-           default = {
-             rv$processed_Simul <- rv$resultats_simulation
+             # Attendre que processed_Billonage soit disponible
+             if (!is.null(rv$processed_Billonage)) {
+               rv$processed_Simul <- rv$processed_Billonage
+             } else {
+               # Si pas encore traité, déclencher une invalidation pour réessayer
+               invalidateLater(100, session)
+               return()
+             }
            }
     )
-  })
+  }, ignoreInit = TRUE)
 
 
 
@@ -1765,7 +1933,7 @@ server <- function(input, output, session) {
     filename = function() {
       if(!(input$Sortie == "echelle_billon")){
 
-      paste("resultats_simulation_artemis_sortie_",input$Sortie,"_",Sys.Date(), ".csv", sep = "")
+        paste("resultats_simulation_artemis_sortie_",input$Sortie,"_",Sys.Date(), ".csv", sep = "")
 
       }
       else{
@@ -1921,7 +2089,3 @@ server <- function(input, output, session) {
 
 # Lancer l'application
 shinyApp(ui = ui, server = server)
-
-
-
-
