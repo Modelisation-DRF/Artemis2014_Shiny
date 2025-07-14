@@ -1745,92 +1745,108 @@ server <- function(input, output, session) {
       return()
     }
 
-    # Afficher un indicateur de traitement
-    showNotification("Calcul du billonnage en cours...", type = "message", duration = 3)
+    # REMPLACER la notification par une barre de progression
+    withProgress(message = 'Calcul du billonnage en cours...', value = 0, {
 
-    # Conversion des types (permettre NA pour tous les grades)
-    dhs_val <- as.numeric(input$dhs_input)
+      incProgress(0.1, detail = "Validation des paramètres...")
 
-    # Gestion des longueurs avec menu déroulant
-    long_grade1_val <- if(is.null(input$long_grade1) || input$long_grade1 == "Indéfini") {
-      NA_real_
-    } else {
-      as.numeric(input$long_grade1)
-    }
+      # Conversion des types (permettre NA pour tous les grades)
+      dhs_val <- as.numeric(input$dhs_input)
 
-    long_grade2_val <- if(is.null(input$long_grade2) || input$long_grade2 == "Indéfini") {
-      NA_real_
-    } else {
-      as.numeric(input$long_grade2)
-    }
+      incProgress(0.2, detail = "Traitement des longueurs...")
 
-    long_grade3_val <- if(is.null(input$long_grade3) || input$long_grade3 == "Indéfini") {
-      NA_real_
-    } else {
-      as.numeric(input$long_grade3)
-    }
+      # Gestion des longueurs avec menu déroulant
+      long_grade1_val <- if(is.null(input$long_grade1) || input$long_grade1 == "Indéfini") {
+        NA_real_
+      } else {
+        as.numeric(input$long_grade1)
+      }
 
-    # Gestion des diamètres (maintenant numericInput avec min/max)
-    diam_grade1_val <- if(is.null(input$diam_grade1) || is.na(input$diam_grade1)) {
-      NA_real_
-    } else {
-      as.numeric(input$diam_grade1)
-    }
+      long_grade2_val <- if(is.null(input$long_grade2) || input$long_grade2 == "Indéfini") {
+        NA_real_
+      } else {
+        as.numeric(input$long_grade2)
+      }
 
-    diam_grade2_val <- if(is.null(input$diam_grade2) || is.na(input$diam_grade2)) {
-      NA_real_
-    } else {
-      as.numeric(input$diam_grade2)
-    }
+      long_grade3_val <- if(is.null(input$long_grade3) || input$long_grade3 == "Indéfini") {
+        NA_real_
+      } else {
+        as.numeric(input$long_grade3)
+      }
 
-    diam_grade3_val <- if(is.null(input$diam_grade3) || is.na(input$diam_grade3)) {
-      NA_real_
-    } else {
-      as.numeric(input$diam_grade3)
-    }
+      incProgress(0.3, detail = "Traitement des diamètres...")
 
-    # Gestion des noms (avec valeurs par défaut)
-    nom_grade1_val <- as.character(input$nom_grade1) # Valeur par défaut "sciage court" définie dans l'UI
+      # Gestion des diamètres (maintenant numericInput avec min/max)
+      diam_grade1_val <- if(is.null(input$diam_grade1) || is.na(input$diam_grade1)) {
+        NA_real_
+      } else {
+        as.numeric(input$diam_grade1)
+      }
 
-    nom_grade2_val <- if(is.null(input$nom_grade2) || input$nom_grade2 == "") {
-      NA_character_
-    } else {
-      as.character(input$nom_grade2) # Valeur par défaut "pate" définie dans l'UI
-    }
+      diam_grade2_val <- if(is.null(input$diam_grade2) || is.na(input$diam_grade2)) {
+        NA_real_
+      } else {
+        as.numeric(input$diam_grade2)
+      }
 
-    nom_grade3_val <- if(is.null(input$nom_grade3) || input$nom_grade3 == "") {
-      NA_character_
-    } else {
-      as.character(input$nom_grade3)
-    }
+      diam_grade3_val <- if(is.null(input$diam_grade3) || is.na(input$diam_grade3)) {
+        NA_real_
+      } else {
+        as.numeric(input$diam_grade3)
+      }
 
-    # Exécuter SortieBillesFusion - laisser la fonction faire sa propre validation
-    tryCatch({
-      rv$processed_Billonage <- SortieBillesFusion(
-        Data = rv$resultats_simulation,
-        Type = as.character(input$typeBillonnage),
-        dhs = dhs_val,
-        nom_grade1 = nom_grade1_val,
-        long_grade1 = long_grade1_val,
-        diam_grade1 = diam_grade1_val,
-        nom_grade2 = nom_grade2_val,
-        long_grade2 = long_grade2_val,
-        diam_grade2 = diam_grade2_val,
-        nom_grade3 = nom_grade3_val,
-        long_grade3 = long_grade3_val,
-        diam_grade3 = diam_grade3_val
-      )
+      incProgress(0.4, detail = "Préparation des noms de grades...")
 
-      # Mettre à jour processed_Simul immédiatement
-      rv$processed_Simul <- rv$processed_Billonage
-      showNotification("Billonnage calculé avec succès!", type = "message", duration = 3)
-    }, error = function(e) {
-      cat("✗ Erreur billonnage:", e$message, "\n")
-      # L'erreur de calcul_vol_bille sera affichée à l'utilisateur
-      showNotification(paste("Erreur:", e$message), type = "error", duration = 5)
-      rv$processed_Billonage <- NULL
-      rv$processed_Simul <- NULL
-    })
+      # Gestion des noms (avec valeurs par défaut)
+      nom_grade1_val <- as.character(input$nom_grade1) # Valeur par défaut "sciage court" définie dans l'UI
+      nom_grade2_val <- if(is.null(input$nom_grade2) || input$nom_grade2 == "") {
+        NA_character_
+      } else {
+        as.character(input$nom_grade2) # Valeur par défaut "pate" définie dans l'UI
+      }
+      nom_grade3_val <- if(is.null(input$nom_grade3) || input$nom_grade3 == "") {
+        NA_character_
+      } else {
+        as.character(input$nom_grade3)
+      }
+
+      incProgress(0.5, detail = "Exécution du calcul de billonnage...")
+
+      # Exécuter SortieBillesFusion - laisser la fonction faire sa propre validation
+      tryCatch({
+        rv$processed_Billonage <- SortieBillesFusion(
+          Data = rv$resultats_simulation,
+          Type = as.character(input$typeBillonnage),
+          dhs = dhs_val,
+          nom_grade1 = nom_grade1_val,
+          long_grade1 = long_grade1_val,
+          diam_grade1 = diam_grade1_val,
+          nom_grade2 = nom_grade2_val,
+          long_grade2 = long_grade2_val,
+          diam_grade2 = diam_grade2_val,
+          nom_grade3 = nom_grade3_val,
+          long_grade3 = long_grade3_val,
+          diam_grade3 = diam_grade3_val
+        )
+
+        incProgress(0.9, detail = "Finalisation...")
+
+        # Mettre à jour processed_Simul immédiatement
+        rv$processed_Simul <- rv$processed_Billonage
+
+        incProgress(1, detail = "Terminé!")
+
+        showNotification("Billonnage calculé avec succès!", type = "message", duration = 3)
+
+      }, error = function(e) {
+        cat("✗ Erreur billonnage:", e$message, "\n")
+        # L'erreur de calcul_vol_bille sera affichée à l'utilisateur
+        showNotification(paste("Erreur:", e$message), type = "error", duration = 5)
+        rv$processed_Billonage <- NULL
+        rv$processed_Simul <- NULL
+      })
+
+    }) # Fin du withProgress
   })
 
   observeEvent(c(input$Sortie, input$simplifier), {
