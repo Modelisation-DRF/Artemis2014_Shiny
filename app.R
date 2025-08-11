@@ -643,7 +643,7 @@ server <- function(input, output, session) {
       output$extraction_question <- renderUI({
         div(
           style = "margin-top: 20px; padding: 15px; background-color: #e8f4f8; border-radius: 5px; border: 1px solid #81B7F0;",
-          h4("Concernant les données climatiques, que souhaitez-vous faire ?"),
+          h4("Données climatiques"),
 
           # Si l'âge moyen n'est pas valide, on désactive les deux premières options
           if (!rv$age_moy_valid) {
@@ -651,8 +651,8 @@ server <- function(input, output, session) {
               radioButtons("extraction_choice", "",
                            choices = list(
                              "Simuler les données climatiques" = "extract",
-                             "Fournir mes propres fichiers climatiques" = "upload",
-                             "Ne pas utiliser de données climatiques" = "none"
+                             "Fournir les données climatiques" = "upload",
+                             "Simulation sans données climatiques" = "none"
                            ),
                            selected = "none"),
               tags$script(HTML("
@@ -671,8 +671,8 @@ server <- function(input, output, session) {
             radioButtons("extraction_choice", "",
                          choices = list(
                            "Simuler les données climatiques" = "extract",
-                           "Fournir mes propres fichiers climatiques" = "upload",
-                           "Ne pas utiliser de données climatiques" = "none"
+                           "Fournir les données climatiques" = "upload",
+                           "Simulation sans données climatiques" = "none"
                          ),
                          selected = character(0))
           },
@@ -680,7 +680,7 @@ server <- function(input, output, session) {
           # Ajout du bouton Valider
           div(
             style = "margin-top: 15px; text-align: center;",
-            actionButton("validate_extraction_choice", "Valider",
+            actionButton("validate_extraction_choice", "Suivant",
                          style = "background-color: #4D90D6; color: white; width: 100%;")
           )
         )
@@ -721,7 +721,7 @@ server <- function(input, output, session) {
       output$extraction_button <- renderUI({
         div(
           style = "margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6;",
-          h4("Configuration de l'extraction", style = "margin-top: 0;"),
+          h4("Configuration de la simulation", style = "margin-top: 0;"),
 
           # Année de départ
           numericInput(
@@ -762,7 +762,7 @@ server <- function(input, output, session) {
       output$extraction_button <- renderUI({
         div(
           style = "margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6;",
-          h4("Importer vos propres fichiers climatiques", style = "margin-top: 0;"),
+          h4("Importer des données climatiques", style = "margin-top: 0;"),
 
           # File input pour le climat annuel
           fileInput("climat_annuel_file", "Fichier climat annuel (CSV)",
@@ -786,8 +786,9 @@ server <- function(input, output, session) {
             actionBttn(
               "validate_climat_files",
               "Valider les fichiers climatiques",
-              style = "gradient",
-              color = "royal",
+              #style = "gradient",
+              #color = "royal",
+              type="primary",
               icon = icon("check"),
               block = TRUE
             )
@@ -1103,8 +1104,9 @@ server <- function(input, output, session) {
         actionBttn(
           "extract_climate",
           "Simuler les données climatiques",
-          style = "gradient",
-          color = "royal",
+          #style = "gradient",
+          type="primary",
+          #color = "royal",
           icon = icon("cloud-download-alt"),
           block = TRUE
         ),
