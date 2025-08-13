@@ -264,7 +264,6 @@ ui <- dashboardPage(
             conditionalPanel(
               condition = "input.Sortie == 'echelle_billon'",
               h5("Paramètres Sybille", style = "color: #856404; font-weight: bold; margin-top: 15px;"),
-              # DHS parameter
               div(
                 style = "margin-bottom: 10px;",
                 numericInput("dhs_input",
@@ -274,7 +273,6 @@ ui <- dashboardPage(
                              max = 1.0,
                              step = 0.01)
               ),
-              # Grade 1 parameters
               div(
                 style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
                 h6("Grade 1", style = "color: #495057; font-weight: bold;"),
@@ -285,28 +283,30 @@ ui <- dashboardPage(
                 numericInput("diam_grade1", "Diamètre au fin bout(cm):",
                              value = 20, min = 0, max = 100, step = 0.1)
               ),
-              # Grade 2 parameters
-              div(
-                style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
-                h6("Grade 2", style = "color: #495057; font-weight: bold;"),
-                textInput("nom_grade2", "Nom du grade 2:", value = "pate"),
-                selectInput("long_grade2", "Longueur (pieds):",
-                            choices = c("", "Indéfini", "4", "8", "12"),
-                            selected = "4"),
-                numericInput("diam_grade2", "Diamètre au fin bout(cm):",
-                             value = 8, min = 0, max = 100, step = 0.1)
-              ),
-              # Grade 3 parameters
-              div(
-                style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
-                h6("Grade 3", style = "color: #495057; font-weight: bold;"),
-                textInput("nom_grade3", "Nom du grade 3:", value = ""),
-                selectInput("long_grade3", "Longueur (pieds):",
-                            choices = c("", "Indéfini", "4", "8", "12"),
-                            selected = NULL),
-                numericInput("diam_grade3", "Diamètre au fin bout(cm):",
-                             value = NA, min = 0, max = 100, step = 0.1)
-              ),
+              uiOutput("add_grade2_button"),
+              uiOutput("grade2_section"),
+              #div(
+              #  style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
+              #  h6("Grade 2", style = "color: #495057; font-weight: bold;"),
+              #  textInput("nom_grade2", "Nom du grade 2:", value = "pate"),
+              #  selectInput("long_grade2", "Longueur (pieds):",
+              #              choices = c("-- Aucune --", "Indéfini", "4", "8", "12"),
+              #              selected = 4),
+              #  numericInput("diam_grade2", "Diamètre au fin bout(cm):",
+              #               value = 8, min = 0, max = 100, step = 0.1)
+              #),
+              uiOutput("add_grade3_button"),
+              uiOutput("grade3_section"),
+              #div(
+              #  style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
+              #  h6("Grade 3", style = "color: #495057; font-weight: bold;"),
+              #  textInput("nom_grade3", "Nom du grade 3:", value = ""),
+              #  selectInput("long_grade3", "Longueur (pieds):",
+              #              choices = c("-- Aucune --", "Indéfini", "4", "8", "12"),
+              #              selected = "-- Aucune --"),
+              #  numericInput("diam_grade3", "Diamètre au fin bout(cm):",
+              #               value = NA, min = 0, max = 100, step = 0.1)
+              #),
               div(
                 style = "margin-top: 15px; text-align: center;",
                 actionButton("calculer_billonnage",
@@ -532,7 +532,9 @@ server <- function(input, output, session) {
     processed_Billonage = NULL,
     processed_Simul = NULL,
     listeEspece = NULL,
-    simulation_terminee = FALSE
+    simulation_terminee = FALSE,
+    show_grade2 = TRUE,
+    show_grade3 = FALSE
 
   )
 
@@ -1732,6 +1734,130 @@ server <- function(input, output, session) {
     )
   })
 
+  observeEvent(input$add_grade2, {
+    rv$show_grade2 <- TRUE
+  })
+
+  observeEvent(input$add_grade3, {
+    rv$show_grade3 <- TRUE
+  })
+
+  observeEvent(input$remove_grade2, {
+    rv$show_grade2 <- FALSE
+    rv$show_grade3 <- FALSE  # Si on supprime Grade 2, supprimer aussi Grade 3
+
+    # Réinitialiser les valeurs du Grade 2 et 3
+    updateTextInput(session, "nom_grade2", value = "")
+    updateSelectInput(session, "long_grade2", selected = "-- Aucune --")
+    updateNumericInput(session, "diam_grade2", value = NA)
+
+    updateTextInput(session, "nom_grade3", value = "")
+    updateSelectInput(session, "long_grade3", selected = "-- Aucune --")
+    updateNumericInput(session, "diam_grade3", value = NA)
+  })
+
+  observeEvent(input$remove_grade3, {
+    rv$show_grade3 <- FALSE
+
+    # Réinitialiser les valeurs du Grade 3
+    updateTextInput(session, "nom_grade3", value = "")
+    updateSelectInput(session, "long_grade3", selected = "-- Aucune --")
+    updateNumericInput(session, "diam_grade3", value = NA)
+  })
+
+  # Observer pour afficher le Grade 3 (seulement si Grade 2 existe)
+  observeEvent(input$add_grade3, {
+    if (rv$show_grade2) {  # Vérification de sécurité
+      rv$show_grade3 <- TRUE
+    }
+  })
+
+  output$add_grade2_button <- renderUI({
+    if (!rv$show_grade2) {
+      div(
+        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed #17a2b8; border-radius: 5px; background-color: #f0f9ff;",
+        actionButton("add_grade2",
+                     "Ajouter Grade 2",
+                     style = "background-color: #17a2b8; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
+                     icon = icon("plus-circle"))
+      )
+    }
+  })
+
+  # Section du Grade 2
+  output$grade2_section <- renderUI({
+    if (rv$show_grade2) {
+      div(
+        style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 10px; position: relative; border-left: 4px solid #17a2b8; animation: fadeIn 0.3s ease-in;",
+
+        # CSS pour l'animation
+        tags$style(HTML("
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      ")),
+
+        # Bouton X pour supprimer le Grade 2
+        div(
+          style = "position: absolute; top: 10px; right: 10px;",
+          actionButton("remove_grade2",
+                       "",
+                       style = "background-color: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 50%; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);",
+                       icon = icon("times"),
+                       title = "Supprimer le Grade 2 (et Grade 3 si présent)")
+        ),
+
+        h6("Grade 2", style = "color: #17a2b8; font-weight: bold; margin-right: 40px;"),
+
+        textInput("nom_grade2", "Nom du grade 2:", value = "pate"),
+        selectInput("long_grade2", "Longueur (pieds):",
+                    choices = c("-- Aucune --", "Indéfini", "4", "8", "12"), selected = "4"),
+        numericInput("diam_grade2", "Diamètre au fin bout(cm):",
+                     value = 8, min = 0, max = 100, step = 0.1)
+      )
+    }
+  })
+
+  output$add_grade3_button <- renderUI({
+    if (rv$show_grade2 && !rv$show_grade3) {
+      div(
+        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed #6f42c1; border-radius: 5px; background-color: #faf8ff;",
+        actionButton("add_grade3",
+                     "Ajouter Grade 3",
+                     style = "background-color: #6f42c1; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
+                     icon = icon("plus-circle"))
+      )
+    }
+  })
+
+  # Section du Grade 3 (affichée conditionnellement)
+  output$grade3_section <- renderUI({
+    if (rv$show_grade3) {
+      div(
+        style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px; position: relative;",
+
+        # Bouton X pour supprimer le Grade 3
+        div(
+          style = "position: absolute; top: 5px; right: 5px;",
+          actionButton("remove_grade3",
+                       "",
+                       style = "background-color: #dc3545; color: white; border: none; padding: 2px 6px; border-radius: 50%; font-size: 12px;",
+                       icon = icon("times"))
+        ),
+
+        h6("Grade 3", style = "color: #495057; font-weight: bold; margin-right: 30px;"),
+
+        textInput("nom_grade3", "Nom du grade 3:", value = ""),
+        selectInput("long_grade3", "Longueur (pieds):",
+                    choices = c("-- Aucune --", "Indéfini", "4", "8", "12"),
+                    selected = "-- Aucune --"),
+        numericInput("diam_grade3", "Diamètre au fin bout(cm):",
+                     value = NA, min = 0, max = 100, step = 0.1)
+      )
+    }
+  })
+
 
 
   observeEvent(input$calculer_billonnage, {
@@ -1745,7 +1871,6 @@ server <- function(input, output, session) {
       return()
     }
 
-    # REMPLACER la notification par une barre de progression
     withProgress(message = 'Calcul du billonnage en cours...', value = 0, {
 
       incProgress(0.1, detail = "Validation des paramètres...")
@@ -1753,66 +1878,130 @@ server <- function(input, output, session) {
       # Conversion des types (permettre NA pour tous les grades)
       dhs_val <- as.numeric(input$dhs_input)
 
-      incProgress(0.2, detail = "Traitement des longueurs...")
+      # Déterminer la valeur du paramètre simplifier basé sur le bouton radio
+      simplifier_val <- input$simplifier
 
-      # Gestion des longueurs avec menu déroulant
-      long_grade1_val <- if(is.null(input$long_grade1) || input$long_grade1 == "Indéfini") {
-        NA_real_
-      } else {
-        as.numeric(input$long_grade1)
-      }
+      suppressWarnings({
+        incProgress(0.2, detail = "Traitement des longueurs...")
 
-      long_grade2_val <- if(is.null(input$long_grade2) || input$long_grade2 == "Indéfini") {
-        NA_real_
-      } else {
-        as.numeric(input$long_grade2)
-      }
+        # Gestion des longueurs avec menu déroulant
+        long_grade1_val <- if(is.null(input$long_grade1) || input$long_grade1 == "Indéfini") {
+          NA_real_
+        } else {
+          as.numeric(input$long_grade1)
+        }
 
-      long_grade3_val <- if(is.null(input$long_grade3) || input$long_grade3 == "Indéfini") {
-        NA_real_
-      } else {
-        as.numeric(input$long_grade3)
-      }
+        # VALIDATION Grade 1 - Hard code condition
+        if(!is.null(input$long_grade1) && input$long_grade1 == "Indéfini" &&
+           (is.null(input$nom_grade1) || input$nom_grade1 == "") &&
+           (is.null(input$diam_grade1) || is.na(input$diam_grade1))) {
+          showNotification("Grade 1 : Si la longueur est définie (même comme 'Indéfini'), le nom et le diamètre doivent être fournis",
+                           type = "error", duration = 5)
+          return()
+        }
 
-      incProgress(0.3, detail = "Traitement des diamètres...")
+        # Grade 2 - Seulement si affiché ET les inputs existent
+        long_grade2_val <- NA_real_
+        if (!is.null(rv$show_grade2) && isTRUE(rv$show_grade2) && !is.null(input$long_grade2)) {
+          long_grade2_val <- if(input$long_grade2 == "Indéfini" || input$long_grade2 == "-- Aucune --") {
+            NA_real_
+          } else {
+            as.numeric(input$long_grade2)
+          }
 
-      # Gestion des diamètres (maintenant numericInput avec min/max)
-      diam_grade1_val <- if(is.null(input$diam_grade1) || is.na(input$diam_grade1)) {
-        NA_real_
-      } else {
-        as.numeric(input$diam_grade1)
-      }
+          # Validations pour Grade 2
+          if(input$long_grade2 == "Indéfini" &&
+             (is.null(input$nom_grade2) || input$nom_grade2 == "") &&
+             (is.null(input$diam_grade2) || is.na(input$diam_grade2))) {
+            showNotification("Grade 2 : Si la longueur est définie (même comme 'Indéfini'), le nom et le diamètre doivent être fournis",
+                             type = "error", duration = 5)
+            return()
+          }
 
-      diam_grade2_val <- if(is.null(input$diam_grade2) || is.na(input$diam_grade2)) {
-        NA_real_
-      } else {
-        as.numeric(input$diam_grade2)
-      }
+          if((!is.null(input$nom_grade2) && input$nom_grade2 != "") ||
+             (!is.null(input$diam_grade2) && !is.na(input$diam_grade2))) {
+            if(input$long_grade2 == "" || input$long_grade2 == "-- Aucune --") {
+              showNotification("Grade 2 : Vous avez défini un nom ou un diamètre mais aucune longueur.",
+                               type = "error", duration = 5)
+              return()
+            }
+          }
+        }
 
-      diam_grade3_val <- if(is.null(input$diam_grade3) || is.na(input$diam_grade3)) {
-        NA_real_
-      } else {
-        as.numeric(input$diam_grade3)
-      }
+        # Grade 3 - Seulement si affiché ET les inputs existent
+        long_grade3_val <- NA_real_
+        if (!is.null(rv$show_grade3) && isTRUE(rv$show_grade3) && !is.null(input$long_grade3)) {
+          long_grade3_val <- if(input$long_grade3 == "Indéfini" || input$long_grade3 == "-- Aucune --") {
+            NA_real_
+          } else {
+            as.numeric(input$long_grade3)
+          }
 
-      incProgress(0.4, detail = "Préparation des noms de grades...")
+          # Validations pour Grade 3
+          if(input$long_grade3 == "Indéfini" &&
+             (is.null(input$nom_grade3) || input$nom_grade3 == "") &&
+             (is.null(input$diam_grade3) || is.na(input$diam_grade3))) {
+            showNotification("Grade 3 : Si la longueur est définie (même comme 'Indéfini'), le nom et le diamètre doivent être fournis",
+                             type = "error", duration = 5)
+            return()
+          }
 
-      # Gestion des noms (avec valeurs par défaut)
-      nom_grade1_val <- as.character(input$nom_grade1) # Valeur par défaut "sciage court" définie dans l'UI
-      nom_grade2_val <- if(is.null(input$nom_grade2) || input$nom_grade2 == "") {
-        NA_character_
-      } else {
-        as.character(input$nom_grade2) # Valeur par défaut "pate" définie dans l'UI
-      }
-      nom_grade3_val <- if(is.null(input$nom_grade3) || input$nom_grade3 == "") {
-        NA_character_
-      } else {
-        as.character(input$nom_grade3)
-      }
+          if((!is.null(input$nom_grade3) && input$nom_grade3 != "") ||
+             (!is.null(input$diam_grade3) && !is.na(input$diam_grade3))) {
+            if(input$long_grade3 == "" || input$long_grade3 == "-- Aucune --") {
+              showNotification("Grade 3 : Vous avez défini un nom ou un diamètre mais aucune longueur.",
+                               type = "error", duration = 5)
+              return()
+            }
+          }
+        }
+
+        incProgress(0.3, detail = "Traitement des diamètres...")
+
+        # Gestion des diamètres - avec protection NULL
+        diam_grade1_val <- if(is.null(input$diam_grade1) || is.na(input$diam_grade1)) {
+          NA_real_
+        } else {
+          as.numeric(input$diam_grade1)
+        }
+
+        diam_grade2_val <- if(!is.null(rv$show_grade2) && isTRUE(rv$show_grade2) &&
+                              !is.null(input$diam_grade2) && !is.na(input$diam_grade2)) {
+          as.numeric(input$diam_grade2)
+        } else {
+          NA_real_
+        }
+
+        diam_grade3_val <- if(!is.null(rv$show_grade3) && isTRUE(rv$show_grade3) &&
+                              !is.null(input$diam_grade3) && !is.na(input$diam_grade3)) {
+          as.numeric(input$diam_grade3)
+        } else {
+          NA_real_
+        }
+
+        incProgress(0.4, detail = "Préparation des noms de grades...")
+
+        # Gestion des noms avec protection NULL
+        nom_grade1_val <- as.character(input$nom_grade1)
+
+        nom_grade2_val <- if(!is.null(rv$show_grade2) && isTRUE(rv$show_grade2) &&
+                             !is.null(input$nom_grade2) && input$nom_grade2 != "") {
+          as.character(input$nom_grade2)
+        } else {
+          NA_character_
+        }
+
+        nom_grade3_val <- if(!is.null(rv$show_grade3) && isTRUE(rv$show_grade3) &&
+                             !is.null(input$nom_grade3) && input$nom_grade3 != "") {
+          as.character(input$nom_grade3)
+        } else {
+          NA_character_
+        }
+      }) # Fin suppressWarnings
 
       incProgress(0.5, detail = "Exécution du calcul de billonnage...")
 
-      # Exécuter SortieBillesFusion - laisser la fonction faire sa propre validation
+      # Exécuter SortieBillesFusion
       tryCatch({
         rv$processed_Billonage <- SortieBillesFusion(
           Data = rv$resultats_simulation,
@@ -1826,21 +2015,18 @@ server <- function(input, output, session) {
           diam_grade2 = diam_grade2_val,
           nom_grade3 = nom_grade3_val,
           long_grade3 = long_grade3_val,
-          diam_grade3 = diam_grade3_val
+          diam_grade3 = diam_grade3_val,
+          Simplifier = simplifier_val
         )
 
         incProgress(0.9, detail = "Finalisation...")
-
-        # Mettre à jour processed_Simul immédiatement
         rv$processed_Simul <- rv$processed_Billonage
-
         incProgress(1, detail = "Terminé!")
 
         showNotification("Billonnage calculé avec succès!", type = "message", duration = 3)
 
       }, error = function(e) {
         cat("✗ Erreur billonnage:", e$message, "\n")
-        # L'erreur de calcul_vol_bille sera affichée à l'utilisateur
         showNotification(paste("Erreur:", e$message), type = "error", duration = 5)
         rv$processed_Billonage <- NULL
         rv$processed_Simul <- NULL
@@ -1873,8 +2059,6 @@ server <- function(input, output, session) {
            }
     )
   }, ignoreInit = TRUE)
-
-
 
   output$resultat_graphique <- renderPlot({
     req(rv$resultats_simulation)
