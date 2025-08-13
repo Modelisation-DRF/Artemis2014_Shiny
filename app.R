@@ -1822,10 +1822,10 @@ server <- function(input, output, session) {
   output$add_grade3_button <- renderUI({
     if (rv$show_grade2 && !rv$show_grade3) {
       div(
-        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed #6f42c1; border-radius: 5px; background-color: #faf8ff;",
+        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed #17a2b8; border-radius: 5px; background-color: #faf8ff;",
         actionButton("add_grade3",
                      "Ajouter Grade 3",
-                     style = "background-color: #6f42c1; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
+                     style = "background-color: #17a2b8; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
                      icon = icon("plus-circle"))
       )
     }
@@ -1835,7 +1835,7 @@ server <- function(input, output, session) {
   output$grade3_section <- renderUI({
     if (rv$show_grade3) {
       div(
-        style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px; position: relative;",
+        style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 10px; position: relative; border-left: 4px solid #17a2b8; animation: fadeIn 0.3s ease-in;",
 
         # Bouton X pour supprimer le Grade 3
         div(
@@ -1846,7 +1846,7 @@ server <- function(input, output, session) {
                        icon = icon("times"))
         ),
 
-        h6("Grade 3", style = "color: #495057; font-weight: bold; margin-right: 30px;"),
+        h6("Grade 3", style = "color: #17a2b8; font-weight: bold; margin-right: 30px;"),
 
         textInput("nom_grade3", "Nom du grade 3:", value = ""),
         selectInput("long_grade3", "Longueur (pieds):",
@@ -1891,7 +1891,6 @@ server <- function(input, output, session) {
           as.numeric(input$long_grade1)
         }
 
-        # VALIDATION Grade 1 - Hard code condition
         if(!is.null(input$long_grade1) && input$long_grade1 == "Indéfini" &&
            (is.null(input$nom_grade1) || input$nom_grade1 == "") &&
            (is.null(input$diam_grade1) || is.na(input$diam_grade1))) {
