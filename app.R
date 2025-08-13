@@ -33,18 +33,18 @@ options(shiny.maxRequestSize = 500 * 1024^2)
 
 # Interface utilisateur
 ui <- dashboardPage(
-  skin = "green",
+  skin = "blue",
 
   # Entête
   dashboardHeader(
     title = "Artemis-2014",
-    titleWidth = 230
+    titleWidth = 250
   ),
 
   # Menu latéral
   dashboardSidebar(
-    width = 230,
-    sidebarMenu(
+
+      sidebarMenu(
       id = "sidebarMenu",
       menuItem("Données", tabName = "data", icon = icon("table")),
 
@@ -52,12 +52,12 @@ ui <- dashboardPage(
       menuItem("À propos", tabName = "about", icon = icon("info-circle")),
       uiOutput("menu_resultats")
     )
-  ),
+ ),
 
 
 
   dashboardBody(
-    tags$head(
+      tags$head(
       tags$style(HTML("
       .box {border-radius: 5px;}
       .small-box {border-radius: 5px;}
@@ -116,7 +116,7 @@ ui <- dashboardPage(
         position: absolute;
         right: 0;
         bottom: -24px; /* Positionnement en dessous de la barre */
-        color: #28a745;
+        color: #4D90D6;
         font-weight: bold;
         white-space: nowrap;
       }
@@ -150,7 +150,7 @@ ui <- dashboardPage(
           box(
             width = 4,
             title = "Importation de données",
-            status = "success",
+            status = "primary",
             solidHeader = TRUE,
 
 
@@ -192,7 +192,7 @@ ui <- dashboardPage(
           box(
             width = 4,
             title = "Options de visualisation",
-            status = "success",
+            status = "primary",
             solidHeader = TRUE,
 
             selectInput("espece", "Groupe d'espèces", choices = c("")),
@@ -240,7 +240,7 @@ ui <- dashboardPage(
           box(
             width = 4,
             title = "Exportation des résultats",
-            status = "warning",
+            status = "primary",
             solidHeader = TRUE,
 
             radioButtons("simplifier", "Toutes les années de simulation",
@@ -318,7 +318,7 @@ ui <- dashboardPage(
             div(
               style = "margin-top: 15px;",
               downloadButton("download_resultats_custom", "Télécharger les résultats",
-                             style = "background-color: #28a745; color: white; width: 100%;")
+                             style = "background-color: #4D90D6; color: white; width: 100%;")
             ),
 
             div(
@@ -340,8 +340,8 @@ ui <- dashboardPage(
             width = 10, offset = 1,
             div(
               class = "about-header text-center",
-              style = "margin-bottom: 30px; border-bottom: 3px solid #28a745; padding-bottom: 15px;",
-              h2("À Propos d'Artemis", style = "color: #28a745; font-weight: 700;"),
+              style = "margin-bottom: 30px; border-bottom: 3px solid #4D90D6; padding-bottom: 15px;",
+              h2("À Propos d'Artemis", style = "color: #4D90D6; font-weight: 700;"),
               p(class = "lead", "Simulateur de croissance", style = "font-style: italic; color: #6c757d;")
             )
           )
@@ -362,7 +362,7 @@ ui <- dashboardPage(
                   class = "row",
                   div(
                     class = "col-md-3 text-center",
-                    icon("tree", class = "fa-4x", style = "color: #28a745; margin-bottom: 15px;")
+                    icon("tree", class = "fa-4x", style = "color: #4D90D6; margin-bottom: 15px;")
                   ),
                   div(
                     class = "col-md-9",
@@ -377,7 +377,7 @@ ui <- dashboardPage(
               div(
                 class = "documentation-section",
                 style = "margin-bottom: 30px; background-color: #f8f9fa; padding: 20px; border-radius: 8px;",
-                h3("Documentation", style = "color: #2c3e50; font-weight: 600; margin-bottom: 15px;"),
+                h3("Documentation", style = "color: #4D90D6; font-weight: 600; margin-bottom: 15px;"),
                 p("Pour vous aider à utiliser efficacement Artemis, nous vous proposons un guide d'utilisation:", style = "font-size: 16px;"),
                 div(
                   class = "text-center",
@@ -386,7 +386,7 @@ ui <- dashboardPage(
                     "download_guide",
                     "Télécharger le guide d'utilisation",
                     icon = icon("file-pdf"),
-                    style = "background-color: #28a745; color: white; padding: 10px 20px; font-size: 16px; border: none; border-radius: 4px;"
+                    style = "background-color: #4D90D6; color: white; padding: 10px 20px; font-size: 16px; border: none; border-radius: 4px;"
                   )
                 ),
                 p("Ce guide contient des instructions détaillées sur la préparation des données et la configuration des simulations.", style = "font-size: 15px; color: #6c757d; font-style: italic;")
@@ -405,8 +405,8 @@ ui <- dashboardPage(
                     class = "col-md-6",
                     div(
                       class = "example-card",
-                      style = "background-color: #f1f8e9; padding: 20px; border-radius: 8px; height: 100%; border-left: 4px solid #7cb342;",
-                      div(class = "text-center", style = "margin-bottom: 15px;", icon("leaf", class = "fa-2x", style = "color: #7cb342;")),
+                      style = "background-color: #f8f9fa; padding: 20px; border-radius: 8px; height: 100%; border-left: 4px solid #4D90D6;",
+                      div(class = "text-center", style = "margin-bottom: 15px;", icon("leaf", class = "fa-2x", style = "color: #4D90D6;")),
                       h4("Données des arbres", style = "text-align: center; color: #2c3e50; margin-bottom: 15px;"),
                       p("Exemple de fichier CSV avec les données des arbres nécessaires pour la simulation.", style = "text-align: center; font-size: 15px;"),
                       div(
@@ -415,7 +415,7 @@ ui <- dashboardPage(
                         downloadButton(
                           "download_arbres",
                           "Télécharger",
-                          style = "background-color: #7cb342; color: white; border: none;"
+                          style = "background-color: #4D90D6; color: white; border: none;"
                         )
                       )
                     )
@@ -424,8 +424,8 @@ ui <- dashboardPage(
                     class = "col-md-6",
                     div(
                       class = "example-card",
-                      style = "background-color: #e1f5fe; padding: 20px; border-radius: 8px; height: 100%; border-left: 4px solid #29b6f6;",
-                      div(class = "text-center", style = "margin-bottom: 15px;", icon("cloud-sun-rain", class = "fa-2x", style = "color: #29b6f6;")),
+                      style = "background-color: #f8f9fa; padding: 20px; border-radius: 8px; height: 100%; border-left: 4px solid #4D90D6;",
+                      div(class = "text-center", style = "margin-bottom: 15px;", icon("cloud-sun-rain", class = "fa-2x", style = "color: #4D90D6;")),
                       h4("Données climatiques", style = "text-align: center; color: #2c3e50; margin-bottom: 15px;"),
                       p("Exemples de fichiers CSV contenant les données climatiques pour les simulations.", style = "text-align: center; font-size: 15px;"),
                       div(
@@ -438,7 +438,7 @@ ui <- dashboardPage(
                             downloadButton(
                               "download_climat_annuel",
                               "Climat annuel",
-                              style = "background-color: #29b6f6; color: white; border: none; width: 100%;"
+                              style = "background-color: #4D90D6; color: white; border: none; width: 100%;"
                             )
                           )
                         ),
@@ -449,7 +449,7 @@ ui <- dashboardPage(
                             downloadButton(
                               "download_climat_mensuel",
                               "Climat mensuel",
-                              style = "background-color: #0288d1; color: white; border: none; width: 100%;"
+                              style = "background-color: #4D90D6; color: white; border: none; width: 100%;"
                             )
                           )
                         )
@@ -465,7 +465,7 @@ ui <- dashboardPage(
               # Section contact
               div(
                 class = "contact-section",
-                style = "background-color: #e8f5e9; padding: 25px; border-radius: 8px;",
+                style = "background-color: #81B7F0; padding: 25px; border-radius: 8px;",
                 h3("Contactez-nous", style = "color: #2c3e50; font-weight: 600; margin-bottom: 15px;"),
                 div(
                   class = "row",
@@ -473,7 +473,7 @@ ui <- dashboardPage(
                     class = "col-md-6",
                     div(
                       style = "background-color: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);",
-                      div(class = "text-center", icon("envelope", class = "fa-2x", style = "color: #28a745; margin-bottom: 10px;")),
+                      div(class = "text-center", icon("envelope", class = "fa-2x", style = "color: #4D90D6; margin-bottom: 10px;")),
                       h4("Email", style = "text-align: center; color: #2c3e50; margin-bottom: 10px;"),
                       p("recherche.forestiere@mrnf.gouv.qc.ca", style = "text-align: center; font-size: 16px; font-weight: 500;")
                     )
@@ -673,7 +673,7 @@ server <- function(input, output, session) {
                                      value = "Validation réussie",
                                      subtitle = "Les données sont valides",
                                      icon = icon("check-circle"),
-                                     color = "green",
+                                     color = "blue",
                                      fill = TRUE
                                    )
       )
@@ -724,7 +724,7 @@ server <- function(input, output, session) {
 
       output$extraction_question <- renderUI({
         div(
-          style = "margin-top: 20px; padding: 15px; background-color: #e8f4f8; border-radius: 5px; border: 1px solid #d1e7dd;",
+          style = "margin-top: 20px; padding: 15px; background-color: #e8f4f8; border-radius: 5px; border: 1px solid #81B7F0;",
           h4("Concernant les données climatiques, que souhaitez-vous faire ?"),
 
           # Si l'âge moyen n'est pas valide, on désactive les deux premières options
@@ -763,7 +763,7 @@ server <- function(input, output, session) {
           div(
             style = "margin-top: 15px; text-align: center;",
             actionButton("validate_extraction_choice", "Valider",
-                         style = "background-color: #007bff; color: white; width: 100%;")
+                         style = "background-color: #4D90D6; color: white; width: 100%;")
           )
         )
       })
@@ -899,7 +899,7 @@ server <- function(input, output, session) {
       # Passer directement à la question de simulation
       output$simulation_message <- renderUI({
         div(
-          style = "margin-top: 20px; padding: 15px; background-color: #d4edda; color: #155724; border-radius: 5px; text-align: center;",
+          style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
           icon("info-circle"),
           span(style = "font-weight: bold; margin-left: 5px;", "Vous avez choisi de ne pas utiliser de données climatiques"),
           div(
@@ -1017,7 +1017,7 @@ server <- function(input, output, session) {
         # Afficher le message pour passer à la simulation
         output$simulation_message <- renderUI({
           div(
-            style = "margin-top: 20px; padding: 15px; background-color: #d4edda; color: #155724; border-radius: 5px; text-align: center;",
+            style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
             icon("check-circle"),
             span(style = "font-weight: bold; margin-left: 5px;", "Fichiers climatiques importés avec succès"),
             div(
@@ -1117,7 +1117,7 @@ server <- function(input, output, session) {
       title = "Extraction terminée",
       div(
         style = "text-align: center;",
-        icon("check-circle", class = "fa-3x", style = "color: #28a745; margin-bottom: 15px;"),
+        icon("check-circle", class = "fa-3x", style = "color: #4D90D6; margin-bottom: 15px;"),
         h4("Les données climatiques ont été extraites avec succès !"),
         p("Vous pouvez télécharger les fichiers ci-dessous :"),
         div(
@@ -1132,7 +1132,7 @@ server <- function(input, output, session) {
         div(
           style = "margin-top: 20px; display: flex; justify-content: space-around;",
           downloadButton("download_annuel", "Télécharger climat annuel",
-                         style = "background-color: #28a745; color: white;"),
+                         style = "background-color: #4D90D6; color: white;"),
           downloadButton("download_mensuel", "Télécharger climat mensuel",
                          style = "background-color: #17a2b8; color: white;")
         )
@@ -1209,7 +1209,7 @@ server <- function(input, output, session) {
     # Demander à l'utilisateur s'il souhaite effectuer une simulation
     output$simulation_message <- renderUI({
       div(
-        style = "margin-top: 20px; padding: 15px; background-color: #d4edda; color: #155724; border-radius: 5px; text-align: center;",
+        style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
         icon("check-circle"),
         span(style = "font-weight: bold; margin-left: 5px;", "Extraction terminée avec succès"),
         div(
@@ -1396,7 +1396,7 @@ server <- function(input, output, session) {
               "lancer_simulation",
               "Lancer la simulation",
               style = "gradient",
-              color = "success",
+              color = "primary",
               icon = icon("play-circle"),
               block = TRUE
             )
@@ -1408,7 +1408,7 @@ server <- function(input, output, session) {
       # Afficher un message de fin
       output$simulation_message <- renderUI({
         div(
-          style = "margin-top: 20px; padding: 15px; background-color: #d4edda; color: #155724; border-radius: 5px; text-align: center;",
+          style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
           icon("check-circle"),
           span(style = "font-weight: bold; margin-left: 5px;", "Processus terminé")
         )
@@ -1554,7 +1554,7 @@ server <- function(input, output, session) {
         Residuel = Residuel,
         EvolClim = EvolClim,
         AccModif = AccModif,
-        MortModif = MortModif,
+        MortModif = "ORI",
         RCP = RCP_value
       )
     }, error = function(e) {
@@ -1589,7 +1589,7 @@ server <- function(input, output, session) {
         title = "Simulation terminée",
         div(
           style = "text-align: center;",
-          icon("check-circle", class = "fa-3x", style = "color: #28a745; margin-bottom: 15px;"),
+          icon("check-circle", class = "fa-3x", style = "color: #4D90D6; margin-bottom: 15px;"),
           h4("La simulation a été effectuée avec succès !"),
           p("Vous pouvez télécharger les résultats ci-dessous :"),
           div(
@@ -2160,7 +2160,7 @@ server <- function(input, output, session) {
     # Afficher un message de fin
     output$simulation_message <- renderUI({
       div(
-        style = "margin-top: 20px; padding: 15px; background-color: #d4edda; color: #155724; border-radius: 5px; text-align: center;",
+        style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
         icon("check-circle"),
         span(style = "font-weight: bold; margin-left: 5px;", "Simulation terminée avec succès")
       )
@@ -2215,7 +2215,7 @@ server <- function(input, output, session) {
       title = "Analyse terminée",
       div(
         style = "text-align: center;",
-        icon("chart-line", class = "fa-3x", style = "color: #fd7e14; margin-bottom: 15px;"),
+        icon("chart-line", class = "fa-3x", style = "color: #4D90D6; margin-bottom: 15px;"),
         h4("L'analyse climatique a été effectuée avec succès !"),
         p("Un rapport d'évolution climatique a été généré."),
         div(
@@ -2232,7 +2232,7 @@ server <- function(input, output, session) {
         )
       ),
       footer = actionButton("close_analyse", "Fermer",
-                            style = "background-color: #007bff; color: white;"),
+                            style = "background-color: #4D90D6; color: white;"),
       easyClose = TRUE
     ))
   })
@@ -2244,7 +2244,7 @@ server <- function(input, output, session) {
     # Afficher le message de confirmation
     output$simulation_message <- renderUI({
       div(
-        style = "margin-top: 20px; padding: 15px; background-color: #d4edda; color: #155724; border-radius: 5px; text-align: center;",
+        style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
         icon("check-circle"),
         span(style = "font-weight: bold; margin-left: 5px;", "Analyse terminée avec succès")
       )
