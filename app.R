@@ -285,40 +285,20 @@ ui <- dashboardPage(
               ),
               uiOutput("add_grade2_button"),
               uiOutput("grade2_section"),
-              #div(
-              #  style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
-              #  h6("Grade 2", style = "color: #495057; font-weight: bold;"),
-              #  textInput("nom_grade2", "Nom du grade 2:", value = "pate"),
-              #  selectInput("long_grade2", "Longueur (pieds):",
-              #              choices = c("-- Aucune --", "Indéfini", "4", "8", "12"),
-              #              selected = 4),
-              #  numericInput("diam_grade2", "Diamètre au fin bout(cm):",
-              #               value = 8, min = 0, max = 100, step = 0.1)
-              #),
               uiOutput("add_grade3_button"),
               uiOutput("grade3_section"),
-              #div(
-              #  style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
-              #  h6("Grade 3", style = "color: #495057; font-weight: bold;"),
-              #  textInput("nom_grade3", "Nom du grade 3:", value = ""),
-              #  selectInput("long_grade3", "Longueur (pieds):",
-              #              choices = c("-- Aucune --", "Indéfini", "4", "8", "12"),
-              #              selected = "-- Aucune --"),
-              #  numericInput("diam_grade3", "Diamètre au fin bout(cm):",
-              #               value = NA, min = 0, max = 100, step = 0.1)
-              #),
               div(
                 style = "margin-top: 15px; text-align: center;",
                 actionButton("calculer_billonnage",
                              "Calculer le billonnage",
-                             style = "background-color: #28a745; color: white; width: 100%;",
+                             style = "background-color: #3c8dbc; color: white; width: 100%;",
                              icon = icon("calculator"))
               )
             ),
             div(
               style = "margin-top: 15px;",
               downloadButton("download_resultats_custom", "Télécharger les résultats",
-                             style = "background-color: #4D90D6; color: white; width: 100%;")
+                             style = "background-color: #3c8dbc; color: white; width: 100%;")
             ),
 
             div(
@@ -1775,22 +1755,33 @@ server <- function(input, output, session) {
   output$add_grade2_button <- renderUI({
     if (!rv$show_grade2) {
       div(
-        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed #17a2b8; border-radius: 5px; background-color: #f0f9ff;",
+        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed ##3c8dbc; border-radius: 5px; background-color: #f0f9ff;",
         actionButton("add_grade2",
                      "Ajouter Grade 2",
-                     style = "background-color: #17a2b8; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
+                     style = "background-color: ##3c8dbc; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
                      icon = icon("plus-circle"))
       )
     }
   })
 
   # Section du Grade 2
+  output$add_grade2_button <- renderUI({
+    if (!rv$show_grade2) {
+      div(
+        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed #3c8dbc; border-radius: 5px; background-color: #f0f9ff;",
+        actionButton("add_grade2",
+                     "Ajouter Grade 2",
+                     style = "background-color: #3c8dbc; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
+                     icon = icon("plus-circle"))
+      )
+    }
+  })
+
   output$grade2_section <- renderUI({
     if (rv$show_grade2) {
       div(
-        style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 10px; position: relative; border-left: 4px solid #17a2b8; animation: fadeIn 0.3s ease-in;",
+        style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 10px; position: relative; border-left: 4px solid #3c8dbc; animation: fadeIn 0.3s ease-in;",
 
-        # CSS pour l'animation
         tags$style(HTML("
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-10px); }
@@ -1798,7 +1789,6 @@ server <- function(input, output, session) {
         }
       ")),
 
-        # Bouton X pour supprimer le Grade 2
         div(
           style = "position: absolute; top: 10px; right: 10px;",
           actionButton("remove_grade2",
@@ -1808,7 +1798,8 @@ server <- function(input, output, session) {
                        title = "Supprimer le Grade 2 (et Grade 3 si présent)")
         ),
 
-        h6("Grade 2", style = "color: #17a2b8; font-weight: bold; margin-right: 40px;"),
+        h6("Grade 2", style = "color: #3c8dbc; font-weight: bold; margin-right: 40px;"),
+        p("(Optionnel)", style = "font-size: 0.8em; color: #6c757d; margin: 0 0 15px 0;"),
 
         textInput("nom_grade2", "Nom du grade 2:", value = "pate"),
         selectInput("long_grade2", "Longueur (pieds):",
@@ -1822,31 +1813,31 @@ server <- function(input, output, session) {
   output$add_grade3_button <- renderUI({
     if (rv$show_grade2 && !rv$show_grade3) {
       div(
-        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed #17a2b8; border-radius: 5px; background-color: #faf8ff;",
-        actionButton("add_grade3",
-                     "Ajouter Grade 3",
-                     style = "background-color: #17a2b8; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
-                     icon = icon("plus-circle"))
+        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed #3c8dbc; border-radius: 5px; background-color: #faf8ff;",
+            actionButton("add_grade3",
+            "Ajouter Grade 3",
+            style = "background-color: #3c8dbc; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
+            icon = icon("plus-circle"))
       )
     }
   })
 
-  # Section du Grade 3 (affichée conditionnellement)
   output$grade3_section <- renderUI({
     if (rv$show_grade3) {
       div(
-        style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 10px; position: relative; border-left: 4px solid #17a2b8; animation: fadeIn 0.3s ease-in;",
+        style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 10px; position: relative; border-left: 4px solid #3c8dbc; animation: fadeIn 0.3s ease-in;",
 
-        # Bouton X pour supprimer le Grade 3
         div(
-          style = "position: absolute; top: 5px; right: 5px;",
+          style = "position: absolute; top: 10px; right: 10px;",
           actionButton("remove_grade3",
                        "",
-                       style = "background-color: #dc3545; color: white; border: none; padding: 2px 6px; border-radius: 50%; font-size: 12px;",
-                       icon = icon("times"))
+                       style = "background-color: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 50%; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);",
+                       icon = icon("times"),
+                       title = "Supprimer le Grade 3")
         ),
 
-        h6("Grade 3", style = "color: #17a2b8; font-weight: bold; margin-right: 30px;"),
+        h6("Grade 3", style = "color: #3c8dbc; font-weight: bold; margin-right: 40px;"),
+        p("(Optionnel)", style = "font-size: 0.8em; color: #6c757d; margin: 0 0 15px 0;"),
 
         textInput("nom_grade3", "Nom du grade 3:", value = ""),
         selectInput("long_grade3", "Longueur (pieds):",
