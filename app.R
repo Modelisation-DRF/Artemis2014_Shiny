@@ -1,5 +1,6 @@
 # app.R
-#source("dev_functions.R")
+#source("dev_functions.R") -> tester fonctions d'autres packages dans le fichier correspondant ici, run la ligne
+#et le code du fichier, mettre en commentaire pour retourner sur les fonctions des packages
 
 if (!require("BioSIM", character.only = TRUE)) {
   if (!require("remotes", character.only = TRUE)) {
@@ -26,6 +27,7 @@ library(Billonage)
 library(sf)
 library(OutilsDRF)
 library(data.table)
+library(readxl)
 
 options(shiny.maxRequestSize = 500 * 1024^2)
 
@@ -1369,6 +1371,42 @@ server <- function(input, output, session) {
             }
           ),
 
+          div(
+            style = "margin-top: 15px;",
+            h5("Traitement de coupe", style = "color: #2c3e50; font-weight: bold;"),
+            checkboxInput("enable_coupe", "Activer les traitements de coupe", value = FALSE),
+
+            conditionalPanel(
+              condition = "input.enable_coupe == true",
+              div(
+                style = "margin-top: 10px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
+                p("Configurez les traitements de coupe par décennie:",
+                  style = "font-size: 0.9em; margin-bottom: 10px;"),
+
+                # Interface dynamique pour chaque décennie
+                uiOutput("coupe_config_ui")
+              )
+            )
+          ),
+
+          div(
+            style = "margin-top: 15px;",
+            h5("Tordeuse des bourgeons de l'épinette (TBE)", style = "color: #2c3e50; font-weight: bold;"),
+            checkboxInput("enable_tbe", "Activer l'effet TBE", value = FALSE),
+
+            conditionalPanel(
+              condition = "input.enable_tbe == true",
+              div(
+                style = "margin-top: 10px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
+                p("Sélectionnez les décennies avec effet TBE:",
+                  style = "font-size: 0.9em; margin-bottom: 10px;"),
+
+                # Interface pour sélectionner les années avec TBE
+                uiOutput("tbe_config_ui")
+              )
+            )
+          ),
+
           # Bouton pour lancer la simulation
           div(
             style = "margin-top: 20px;",
@@ -1396,7 +1434,332 @@ server <- function(input, output, session) {
     }
   })
 
+  observeEvent(input$enable_coupe, {
+    if (input$enable_coupe && !is.null(input$annees_simulation)) {
+      horizon <- input$annees_simulation / 10
+      # Initialiser seulement si pas déjà fait
+      if (is.null(rv$coupe_on_vector)) {
+        rv$coupe_on_vector <- rep(NA_real_, horizon)
+        rv$coupe_modif_vector <- vector("list", horizon)
+      }
+    } else {
+      # Réinitialiser les vecteurs quand la case est décochée
+      rv$coupe_on_vector <- NULL
+      rv$coupe_modif_vector <- NULL
+    }
+  })
 
+  observeEvent(input$enable_tbe, {
+    if (input$enable_tbe && !is.null(input$annees_simulation)) {
+      horizon <- input$annees_simulation / 10
+      # Initialiser seulement si pas déjà fait
+      if (is.null(rv$tbe_vector)) {
+        rv$tbe_vector <- rep(0, horizon)
+      }
+    } else {
+      # Réinitialiser le vecteur quand la case est décochée
+      rv$tbe_vector <- NULL
+    }
+  })
+
+
+  output$coupe_config_ui <- renderUI({
+    req(input$enable_coupe, input$annees_simulation)
+    horizon <- input$annees_simulation / 10
+
+    div(
+      div(
+        style = "margin-bottom: 15px;",
+        selectInput("decennie_coupe", "Décennie de coupe:",
+                    choices = setNames(0:(horizon-1), paste("Décennie", 0:(horizon-1), "-", 1:horizon)),
+                    selected = NULL)
+      ),
+      div(
+        style = "margin-bottom: 15px;",
+        selectInput("type_coupe", "Type de coupe:",
+                    choices = c("Aucune coupe" = "NA",
+                                setNames(0:18, paste("Coupe", 0:18))),
+                    selected = "NA")
+      ),
+
+      # Section pour le type de modificateur
+      div(
+        style = "margin-bottom: 15px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
+        h6("Type de modificateur:", style = "margin-bottom: 10px;"),
+        radioButtons("type_modif", "",
+                     choices = list(
+                       "Modificateur simple (même valeur pour toutes les essences)" = "simple",
+                       "Fichier (modificateurs par essence)" = "excel"
+                     ),
+                     selected = "simple"),
+
+        # Interface conditionnelle selon le choix
+        conditionalPanel(
+          condition = "input.type_modif == 'simple'",
+          numericInput("modif_coupe", "Modificateur (%):",
+                       value = 0, min = -80, max = 160, step = 5)
+        ),
+
+        conditionalPanel(
+          condition = "input.type_modif == 'excel'",
+          div(
+            fileInput("modif_excel_file", "Fichier des modificateurs:",
+                      accept = c(".xlsx", ".xls", ".csv")),
+            div(
+              style = "font-size: 0.85em; color: #6c757d; font-style: italic;",
+              "Le fichier doit contenir les colonnes 'ess_ind' et 'modifier' (Excel ou CSV)"
+            )
+          )
+        )
+      ),
+
+      div(
+        style = "margin-bottom: 10px;",
+        div(
+          style = "margin-bottom: 5px;",
+          actionButton("apply_coupe", "Appliquer la coupe",
+                       style = "background-color: #3c8dbc; color: white; width: 100%;")
+        ),
+        div(
+          actionButton("clear_coupes", "Effacer toutes les coupes",
+                       style = "background-color: #dc3545; color: white; width: 100%;")
+        )
+      ),
+
+      # Affichage du vecteur actuel
+      div(
+        style = "background-color: #f1f3f4; padding: 10px; border-radius: 3px;",
+        h6("Configuration actuelle des coupes:"),
+        verbatimTextOutput("display_coupes")
+      )
+    )
+  })
+
+  # Interface pour TBE
+  output$tbe_config_ui <- renderUI({
+    req(input$enable_tbe, input$annees_simulation)
+    horizon <- input$annees_simulation / 10
+
+    div(
+      div(
+        style = "margin-bottom: 15px;",
+        selectInput("decennie_tbe", "Décennie TBE:",
+                    choices = setNames(0:(horizon-1), paste("Décennie", 0:(horizon-1), "-", 1:horizon)),
+                    selected = NULL)
+      ),
+      div(
+        style = "margin-bottom: 15px;",
+        selectInput("effet_tbe", "Effet TBE:",
+                    choices = list("Absent" = 0, "Présent" = 1),
+                    selected = 0)
+      ),
+
+      div(
+        style = "margin-bottom: 10px;",
+        div(
+          style = "margin-bottom: 5px;",
+          actionButton("apply_tbe", "Appliquer TBE",
+                       style = "background-color: #3c8dbc; color: white; width: 100%;")
+        ),
+        div(
+          actionButton("clear_tbe", "Effacer tous les TBE",
+                       style = "background-color: #dc3545; color: white; width: 100%;")
+        )
+      ),
+
+      # Affichage du vecteur actuel
+      div(
+        style = "background-color: #f1f3f4; padding: 10px; border-radius: 3px;",
+        h6("Configuration actuelle TBE:"),
+        verbatimTextOutput("display_tbe")
+      )
+    )
+  })
+
+  # Observateurs pour appliquer les modifications aux vecteurs
+  observeEvent(input$apply_coupe, {
+    req(input$decennie_coupe, input$type_coupe)
+
+    if (input$type_coupe == "NA") {
+      showNotification("Impossible d'appliquer une configuration avec 'Aucune coupe' sélectionnée.",
+                       type = "warning", duration = 4)
+      return()
+    }
+
+    decennie_idx <- as.numeric(input$decennie_coupe) + 1
+
+    if (input$type_coupe == "NA") {
+      rv$coupe_on_vector[decennie_idx] <- NA_real_
+      rv$coupe_modif_vector[[decennie_idx]] <- NA
+    } else {
+      rv$coupe_on_vector[decennie_idx] <- as.numeric(input$type_coupe)
+
+      if (!is.null(input$type_modif) && input$type_modif == "simple") {
+        rv$coupe_modif_vector[[decennie_idx]] <- input$modif_coupe
+      } else if (!is.null(input$type_modif) && input$type_modif == "excel") {
+        if (!is.null(input$modif_excel_file) && !is.null(input$modif_excel_file$datapath)) {
+          tryCatch({
+            # Détecter le type de fichier par l'extension
+            file_ext <- tools::file_ext(input$modif_excel_file$name)
+
+            if (file_ext %in% c("xlsx", "xls")) {
+              modif_data <- readxl::read_excel(input$modif_excel_file$datapath)
+            } else if (file_ext == "csv") {
+              modif_data <- read.csv(input$modif_excel_file$datapath, sep = ";", header = TRUE)
+            } else {
+              showNotification("Format de fichier non supporté. Utilisez Excel (.xlsx, .xls) ou CSV.",
+                               type = "error", duration = 5)
+              return()
+            }
+
+            if (!all(c("ess_ind", "modifier") %in% colnames(modif_data))) {
+              showNotification("Le fichier doit contenir les colonnes 'ess_ind' et 'modifier'",
+                               type = "error", duration = 5)
+              return()
+            }
+
+            # Ajouter le nom du fichier au data.frame
+            attr(modif_data, "filename") <- input$modif_excel_file$name
+            rv$coupe_modif_vector[[decennie_idx]] <- modif_data
+
+          }, error = function(e) {
+            showNotification(paste("Erreur lors de la lecture du fichier:", e$message),
+                             type = "error", duration = 5)
+            return()
+          })
+        } else {
+          showNotification("Veuillez sélectionner un fichier",
+                           type = "error", duration = 5)
+          return()
+        }
+      } else {
+        rv$coupe_modif_vector[[decennie_idx]] <- 0
+      }
+    }
+
+    showNotification(paste("Coupe appliquée à la décennie", input$decennie_coupe),
+                     type = "message", duration = 2)
+  })
+
+  observeEvent(input$apply_tbe, {
+    req(input$decennie_tbe, input$effet_tbe)
+
+    decennie_idx <- as.numeric(input$decennie_tbe) + 1
+
+    # Vérifier que l'index est valide
+    if (decennie_idx > length(rv$tbe_vector)) {
+      showNotification("Erreur: Index de décennie invalide", type = "error", duration = 5)
+      return()
+    }
+
+    rv$tbe_vector[decennie_idx] <- as.numeric(input$effet_tbe)
+
+    showNotification(paste("TBE appliqué à la décennie", input$decennie_tbe),
+                     type = "message", duration = 2)
+  })
+
+  # Boutons pour effacer
+  observeEvent(input$clear_coupes, {
+    if (!is.null(rv$coupe_on_vector)) {
+      rv$coupe_on_vector <- rep(NA_real_, length(rv$coupe_on_vector))
+      rv$coupe_modif_vector <- vector("list", length(rv$coupe_modif_vector))
+      showNotification("Toutes les coupes ont été effacées", type = "message", duration = 2)
+    }
+  })
+
+  observeEvent(input$clear_tbe, {
+    if (!is.null(rv$tbe_vector)) {
+      rv$tbe_vector <- rep(0, length(rv$tbe_vector))
+      showNotification("Tous les effets TBE ont été effacés", type = "message", duration = 2)
+    }
+  })
+
+  # Affichage des vecteurs actuels
+  output$display_coupes <- renderText({
+    if (!is.null(rv$coupe_on_vector) && length(rv$coupe_on_vector) > 0) {
+      coupe_display <- ifelse(is.na(rv$coupe_on_vector), "NA", as.character(rv$coupe_on_vector))
+
+      modif_display <- sapply(seq_along(rv$coupe_modif_vector), function(i) {
+        x <- rv$coupe_modif_vector[[i]]
+        if (is.null(x) || (length(x) == 1 && is.na(x))) {
+          "NA"
+        } else if (is.numeric(x) && length(x) == 1) {
+          paste0(x, "%")
+        } else if (is.data.frame(x) && nrow(x) > 0) {
+          filename <- attr(x, "filename")
+          if (!is.null(filename)) {
+            filename
+          } else {
+            paste0("Excel (", nrow(x), " essences)")
+          }
+        } else {
+          "Vide"
+        }
+      })
+
+      paste0("Coupe_ON: [", paste(coupe_display, collapse = ", "), "]\n",
+             "Modif: [", paste(modif_display, collapse = ", "), "]")
+    } else {
+      "Aucune configuration"
+    }
+  })
+
+  output$display_tbe <- renderText({
+    if (!is.null(rv$tbe_vector)) {
+      paste0("TBE: [", paste(rv$tbe_vector, collapse = ", "), "]")
+    } else {
+      "Aucune configuration"
+    }
+  })
+
+  observe({
+    if (!is.null(input$annees_simulation) && !is.null(input$enable_coupe) && input$enable_coupe) {
+      new_horizon <- input$annees_simulation / 10
+
+      # Redimensionner le vecteur coupe_on
+      if (is.null(rv$coupe_on_vector) || length(rv$coupe_on_vector) != new_horizon) {
+        old_vector <- rv$coupe_on_vector
+        rv$coupe_on_vector <- rep(NA_real_, new_horizon)
+
+        # Conserver les anciennes valeurs si elles existent
+        if (!is.null(old_vector) && length(old_vector) > 0) {
+          copy_length <- min(length(old_vector), new_horizon)
+          rv$coupe_on_vector[1:copy_length] <- old_vector[1:copy_length]
+        }
+      }
+
+      # Redimensionner la liste coupe_modif
+      if (is.null(rv$coupe_modif_vector) || length(rv$coupe_modif_vector) != new_horizon) {
+        old_list <- rv$coupe_modif_vector
+        rv$coupe_modif_vector <- vector("list", new_horizon)
+
+        # Conserver les anciennes valeurs si elles existent
+        if (!is.null(old_list) && length(old_list) > 0) {
+          copy_length <- min(length(old_list), new_horizon)
+          rv$coupe_modif_vector[1:copy_length] <- old_list[1:copy_length]
+        }
+      }
+    }
+  })
+
+  # Observer similaire pour TBE
+  observe({
+    if (!is.null(input$annees_simulation) && !is.null(input$enable_tbe) && input$enable_tbe) {
+      new_horizon <- input$annees_simulation / 10
+
+      # Redimensionner le vecteur TBE
+      if (is.null(rv$tbe_vector) || length(rv$tbe_vector) != new_horizon) {
+        old_vector <- rv$tbe_vector
+        rv$tbe_vector <- rep(0, new_horizon)
+
+        # Conserver les anciennes valeurs si elles existent
+        if (!is.null(old_vector) && length(old_vector) > 0) {
+          copy_length <- min(length(old_vector), new_horizon)
+          rv$tbe_vector[1:copy_length] <- old_vector[1:copy_length]
+        }
+      }
+    }
+  })
 
 
 
@@ -1522,6 +1885,25 @@ server <- function(input, output, session) {
                         input$rcp,
                         "RCP45")  # Valeur par défaut
 
+
+    coupe_on <- if (!is.null(input$enable_coupe) && input$enable_coupe) {
+      rv$coupe_on_vector
+    } else {
+      NULL
+    }
+
+    coupe_modif <- if (!is.null(input$enable_coupe) && input$enable_coupe) {
+      as.list(rv$coupe_modif_vector)
+    } else {
+      NULL
+    }
+
+    tbe <- if (!is.null(input$enable_tbe) && input$enable_tbe) {
+      rv$tbe_vector
+    } else {
+      NULL
+    }
+
     # Exécuter la fonction simulateurArtemis dans un bloc tryCatch pour gérer les erreurs
     result <- tryCatch({
       # Appel à la fonction simulateurArtemis avec les paramètres appropriés
@@ -1535,7 +1917,10 @@ server <- function(input, output, session) {
         EvolClim = EvolClim,
         AccModif = AccModif,
         MortModif = "ORI",
-        RCP = RCP_value
+        RCP = RCP_value,
+        Coupe_ON = coupe_on,
+        Coupe_modif = coupe_modif,
+        TBE = tbe
       )
     }, error = function(e) {
       removeModal()
@@ -2011,6 +2396,7 @@ server <- function(input, output, session) {
 
         incProgress(0.9, detail = "Finalisation...")
         rv$processed_Simul <- rv$processed_Billonage
+
         incProgress(1, detail = "Terminé!")
 
         showNotification("Billonnage calculé avec succès!", type = "message", duration = 3)
