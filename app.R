@@ -1,4 +1,6 @@
 # app.R
+#source("dev_functions.R") -> tester fonctions d'autres packages dans le fichier correspondant ici, run la ligne
+#et le code du fichier, mettre en commentaire pour retourner sur les fonctions des packages
 
 if (!require("BioSIM", character.only = TRUE)) {
   if (!require("remotes", character.only = TRUE)) {
@@ -21,8 +23,11 @@ library(dplyr)
 library(BioSIM)
 library(ExtractMap)
 library(plotly)
-library(sf)
 library(Billonage)
+library(sf)
+library(OutilsDRF)
+library(data.table)
+library(readxl)
 
 options(shiny.maxRequestSize = 500 * 1024^2)
 
@@ -246,21 +251,57 @@ ui <- dashboardPage(
                          inline = TRUE),
             selectInput("Sortie",
                         label = "Choix de la sortie",
-                        choices = c("Arbre" = "arbre", "Placette" = "placette", "À l'échelle du billon"="echelle_billon")
-            ),
+                        choices = c("-- Sélectionner une option --" = "",
+                                    "Arbre" = "arbre",
+                                    "Placette" = "placette",
+                                    "À l'échelle du billon" = "echelle_billon"),
+                        selected = ""),
             conditionalPanel(
               condition = "input.Sortie == 'echelle_billon'",
-              selectInput("typeBillonnage", "Type de Billonnage :",
+              selectInput("typeBillonnage", "Type de Billonnage Pétro:",
                           choices = list("DHP_Régionalisé" = "DHP", "DHP_Provincial" = "DHP2015")
               )
             ),
 
+            conditionalPanel(
+              condition = "input.Sortie == 'echelle_billon'",
+              h5("Paramètres Sybille", style = "color: #856404; font-weight: bold; margin-top: 15px;"),
+              div(
+                style = "margin-bottom: 10px;",
+                numericInput("dhs_input",
+                             label = "DHS (Diamètre à hauteur de souche):",
+                             value = 0.15,
+                             min = 0.01,
+                             max = 1.0,
+                             step = 0.01)
+              ),
+              div(
+                style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
+                h6("Grade 1", style = "color: #495057; font-weight: bold;"),
+                textInput("nom_grade1", "Nom du grade 1:", value = "sciage court"),
+                selectInput("long_grade1", "Longueur (pieds):",
+                            choices = c("Indéfini", "4", "8", "12"),
+                            selected = "8"),
+                numericInput("diam_grade1", "Diamètre au fin bout(cm):",
+                             value = 20, min = 0, max = 100, step = 0.1)
+              ),
+              uiOutput("add_grade2_button"),
+              uiOutput("grade2_section"),
+              uiOutput("add_grade3_button"),
+              uiOutput("grade3_section"),
+              div(
+                style = "margin-top: 15px; text-align: center;",
+                actionButton("calculer_billonnage",
+                             "Calculer le billonnage",
+                             style = "background-color: #3c8dbc; color: white; width: 100%;",
+                             icon = icon("calculator"))
+              )
+            ),
             div(
               style = "margin-top: 15px;",
               downloadButton("download_resultats_custom", "Télécharger les résultats",
-                             style = "background-color: #4D90D6; color: white; width: 100%;")
+                             style = "background-color: #3c8dbc; color: white; width: 100%;")
             ),
-
 
             div(
               style = "margin-top: 10px; font-size: 0.9em; color: #6c757d; font-style: italic;",
@@ -458,7 +499,6 @@ ui <- dashboardPage(
 # Serveur
 server <- function(input, output, session) {
 
-
   rv <- reactiveValues(
     data_valid = FALSE,
     extraction_choice_made = FALSE,
@@ -474,21 +514,45 @@ server <- function(input, output, session) {
     processed_Billonage = NULL,
     processed_Simul = NULL,
     listeEspece = NULL,
-    simulation_terminee = FALSE
+    simulation_terminee = FALSE,
+    show_grade2 = TRUE,
+    show_grade3 = FALSE
 
   )
+
+  observe({
+    query <- parseQueryString(session$clientData$url_search)
+
+    if ("dev" %in% names(query) && file.exists("cached_simulation_results.rds")) {
+      # Load cached simulation results
+      rv$resultats_simulation <- readRDS("cached_simulation_results.rds")
+      rv$simulation_terminee <- TRUE
+
+      # Switch to results tab immediately
+      updateTabItems(session, "sidebarMenu", "results")
+
+      # Pre-select your working values for the export box
+      updateRadioButtons(session, "simplifier", selected = FALSE)
+      updateSelectInput(session, "Sortie", selected = "echelle_billon")
+      updateSelectInput(session, "typeBillonnage", selected = "DHP")
+
+      showNotification("DEV MODE: Loaded cached simulation results",
+                       type = "message", duration = 3)
+    }
+  })
+
   output$file_input_ui <- renderUI({
 
     fileInput(paste0("file", ifelse(is.null(rv$fileInputId), "", rv$fileInputId)),
               "Choisir un fichier CSV", accept = c("text/csv", "text/comma-separated-values,text/plain", ".csv"))
-    })
+  })
 
   output$menu_resultats <- renderUI({
     if (rv$simulation_terminee) {
 
       menuItem("Résultats", tabName = "results", icon = icon("chart-line"))
     } else {
-     NULL
+      NULL
     }
   })
 
@@ -1309,6 +1373,42 @@ server <- function(input, output, session) {
             }
           ),
 
+          div(
+            style = "margin-top: 15px;",
+            h5("Traitement de coupe", style = "color: #2c3e50; font-weight: bold;"),
+            checkboxInput("enable_coupe", "Activer les traitements de coupe", value = FALSE),
+
+            conditionalPanel(
+              condition = "input.enable_coupe == true",
+              div(
+                style = "margin-top: 10px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
+                p("Configurez les traitements de coupe par décennie:",
+                  style = "font-size: 0.9em; margin-bottom: 10px;"),
+
+                # Interface dynamique pour chaque décennie
+                uiOutput("coupe_config_ui")
+              )
+            )
+          ),
+
+          div(
+            style = "margin-top: 15px;",
+            h5("Tordeuse des bourgeons de l'épinette (TBE)", style = "color: #2c3e50; font-weight: bold;"),
+            checkboxInput("enable_tbe", "Activer l'effet TBE", value = FALSE),
+
+            conditionalPanel(
+              condition = "input.enable_tbe == true",
+              div(
+                style = "margin-top: 10px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
+                p("Sélectionnez les décennies avec effet TBE:",
+                  style = "font-size: 0.9em; margin-bottom: 10px;"),
+
+                # Interface pour sélectionner les années avec TBE
+                uiOutput("tbe_config_ui")
+              )
+            )
+          ),
+
           # Bouton pour lancer la simulation
           div(
             style = "margin-top: 20px;",
@@ -1336,7 +1436,332 @@ server <- function(input, output, session) {
     }
   })
 
+  observeEvent(input$enable_coupe, {
+    if (input$enable_coupe && !is.null(input$annees_simulation)) {
+      horizon <- input$annees_simulation / 10
+      # Initialiser seulement si pas déjà fait
+      if (is.null(rv$coupe_on_vector)) {
+        rv$coupe_on_vector <- rep(NA_real_, horizon)
+        rv$coupe_modif_vector <- vector("list", horizon)
+      }
+    } else {
+      # Réinitialiser les vecteurs quand la case est décochée
+      rv$coupe_on_vector <- NULL
+      rv$coupe_modif_vector <- NULL
+    }
+  })
 
+  observeEvent(input$enable_tbe, {
+    if (input$enable_tbe && !is.null(input$annees_simulation)) {
+      horizon <- input$annees_simulation / 10
+      # Initialiser seulement si pas déjà fait
+      if (is.null(rv$tbe_vector)) {
+        rv$tbe_vector <- rep(0, horizon)
+      }
+    } else {
+      # Réinitialiser le vecteur quand la case est décochée
+      rv$tbe_vector <- NULL
+    }
+  })
+
+
+  output$coupe_config_ui <- renderUI({
+    req(input$enable_coupe, input$annees_simulation)
+    horizon <- input$annees_simulation / 10
+
+    div(
+      div(
+        style = "margin-bottom: 15px;",
+        selectInput("decennie_coupe", "Décennie de coupe:",
+                    choices = setNames(0:(horizon-1), paste("Décennie", 0:(horizon-1), "-", 1:horizon)),
+                    selected = NULL)
+      ),
+      div(
+        style = "margin-bottom: 15px;",
+        selectInput("type_coupe", "Type de coupe:",
+                    choices = c("Aucune coupe" = "NA",
+                                setNames(0:18, paste("Coupe", 0:18))),
+                    selected = "NA")
+      ),
+
+      # Section pour le type de modificateur
+      div(
+        style = "margin-bottom: 15px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
+        h6("Type de modificateur:", style = "margin-bottom: 10px;"),
+        radioButtons("type_modif", "",
+                     choices = list(
+                       "Modificateur simple (même valeur pour toutes les essences)" = "simple",
+                       "Fichier (modificateurs par essence)" = "excel"
+                     ),
+                     selected = "simple"),
+
+        # Interface conditionnelle selon le choix
+        conditionalPanel(
+          condition = "input.type_modif == 'simple'",
+          numericInput("modif_coupe", "Modificateur (%):",
+                       value = 0, min = -80, max = 160, step = 5)
+        ),
+
+        conditionalPanel(
+          condition = "input.type_modif == 'excel'",
+          div(
+            fileInput("modif_excel_file", "Fichier des modificateurs:",
+                      accept = c(".xlsx", ".xls", ".csv")),
+            div(
+              style = "font-size: 0.85em; color: #6c757d; font-style: italic;",
+              "Le fichier doit contenir les colonnes 'ess_ind' et 'modifier' (Excel ou CSV)"
+            )
+          )
+        )
+      ),
+
+      div(
+        style = "margin-bottom: 10px;",
+        div(
+          style = "margin-bottom: 5px;",
+          actionButton("apply_coupe", "Appliquer la coupe",
+                       style = "background-color: #3c8dbc; color: white; width: 100%;")
+        ),
+        div(
+          actionButton("clear_coupes", "Effacer toutes les coupes",
+                       style = "background-color: #dc3545; color: white; width: 100%;")
+        )
+      ),
+
+      # Affichage du vecteur actuel
+      div(
+        style = "background-color: #f1f3f4; padding: 10px; border-radius: 3px;",
+        h6("Configuration actuelle des coupes:"),
+        verbatimTextOutput("display_coupes")
+      )
+    )
+  })
+
+  # Interface pour TBE
+  output$tbe_config_ui <- renderUI({
+    req(input$enable_tbe, input$annees_simulation)
+    horizon <- input$annees_simulation / 10
+
+    div(
+      div(
+        style = "margin-bottom: 15px;",
+        selectInput("decennie_tbe", "Décennie TBE:",
+                    choices = setNames(0:(horizon-1), paste("Décennie", 0:(horizon-1), "-", 1:horizon)),
+                    selected = NULL)
+      ),
+      div(
+        style = "margin-bottom: 15px;",
+        selectInput("effet_tbe", "Effet TBE:",
+                    choices = list("Absent" = 0, "Présent" = 1),
+                    selected = 0)
+      ),
+
+      div(
+        style = "margin-bottom: 10px;",
+        div(
+          style = "margin-bottom: 5px;",
+          actionButton("apply_tbe", "Appliquer TBE",
+                       style = "background-color: #3c8dbc; color: white; width: 100%;")
+        ),
+        div(
+          actionButton("clear_tbe", "Effacer tous les TBE",
+                       style = "background-color: #dc3545; color: white; width: 100%;")
+        )
+      ),
+
+      # Affichage du vecteur actuel
+      div(
+        style = "background-color: #f1f3f4; padding: 10px; border-radius: 3px;",
+        h6("Configuration actuelle TBE:"),
+        verbatimTextOutput("display_tbe")
+      )
+    )
+  })
+
+  # Observateurs pour appliquer les modifications aux vecteurs
+  observeEvent(input$apply_coupe, {
+    req(input$decennie_coupe, input$type_coupe)
+
+    if (input$type_coupe == "NA") {
+      showNotification("Impossible d'appliquer une configuration avec 'Aucune coupe' sélectionnée.",
+                       type = "warning", duration = 4)
+      return()
+    }
+
+    decennie_idx <- as.numeric(input$decennie_coupe) + 1
+
+    if (input$type_coupe == "NA") {
+      rv$coupe_on_vector[decennie_idx] <- NA_real_
+      rv$coupe_modif_vector[[decennie_idx]] <- NA
+    } else {
+      rv$coupe_on_vector[decennie_idx] <- as.numeric(input$type_coupe)
+
+      if (!is.null(input$type_modif) && input$type_modif == "simple") {
+        rv$coupe_modif_vector[[decennie_idx]] <- input$modif_coupe
+      } else if (!is.null(input$type_modif) && input$type_modif == "excel") {
+        if (!is.null(input$modif_excel_file) && !is.null(input$modif_excel_file$datapath)) {
+          tryCatch({
+            # Détecter le type de fichier par l'extension
+            file_ext <- tools::file_ext(input$modif_excel_file$name)
+
+            if (file_ext %in% c("xlsx", "xls")) {
+              modif_data <- readxl::read_excel(input$modif_excel_file$datapath)
+            } else if (file_ext == "csv") {
+              modif_data <- read.csv(input$modif_excel_file$datapath, sep = ";", header = TRUE)
+            } else {
+              showNotification("Format de fichier non supporté. Utilisez Excel (.xlsx, .xls) ou CSV.",
+                               type = "error", duration = 5)
+              return()
+            }
+
+            if (!all(c("ess_ind", "modifier") %in% colnames(modif_data))) {
+              showNotification("Le fichier doit contenir les colonnes 'ess_ind' et 'modifier'",
+                               type = "error", duration = 5)
+              return()
+            }
+
+            # Ajouter le nom du fichier au data.frame
+            attr(modif_data, "filename") <- input$modif_excel_file$name
+            rv$coupe_modif_vector[[decennie_idx]] <- modif_data
+
+          }, error = function(e) {
+            showNotification(paste("Erreur lors de la lecture du fichier:", e$message),
+                             type = "error", duration = 5)
+            return()
+          })
+        } else {
+          showNotification("Veuillez sélectionner un fichier",
+                           type = "error", duration = 5)
+          return()
+        }
+      } else {
+        rv$coupe_modif_vector[[decennie_idx]] <- 0
+      }
+    }
+
+    showNotification(paste("Coupe appliquée à la décennie", input$decennie_coupe),
+                     type = "message", duration = 2)
+  })
+
+  observeEvent(input$apply_tbe, {
+    req(input$decennie_tbe, input$effet_tbe)
+
+    decennie_idx <- as.numeric(input$decennie_tbe) + 1
+
+    # Vérifier que l'index est valide
+    if (decennie_idx > length(rv$tbe_vector)) {
+      showNotification("Erreur: Index de décennie invalide", type = "error", duration = 5)
+      return()
+    }
+
+    rv$tbe_vector[decennie_idx] <- as.numeric(input$effet_tbe)
+
+    showNotification(paste("TBE appliqué à la décennie", input$decennie_tbe),
+                     type = "message", duration = 2)
+  })
+
+  # Boutons pour effacer
+  observeEvent(input$clear_coupes, {
+    if (!is.null(rv$coupe_on_vector)) {
+      rv$coupe_on_vector <- rep(NA_real_, length(rv$coupe_on_vector))
+      rv$coupe_modif_vector <- vector("list", length(rv$coupe_modif_vector))
+      showNotification("Toutes les coupes ont été effacées", type = "message", duration = 2)
+    }
+  })
+
+  observeEvent(input$clear_tbe, {
+    if (!is.null(rv$tbe_vector)) {
+      rv$tbe_vector <- rep(0, length(rv$tbe_vector))
+      showNotification("Tous les effets TBE ont été effacés", type = "message", duration = 2)
+    }
+  })
+
+  # Affichage des vecteurs actuels
+  output$display_coupes <- renderText({
+    if (!is.null(rv$coupe_on_vector) && length(rv$coupe_on_vector) > 0) {
+      coupe_display <- ifelse(is.na(rv$coupe_on_vector), "NA", as.character(rv$coupe_on_vector))
+
+      modif_display <- sapply(seq_along(rv$coupe_modif_vector), function(i) {
+        x <- rv$coupe_modif_vector[[i]]
+        if (is.null(x) || (length(x) == 1 && is.na(x))) {
+          "NA"
+        } else if (is.numeric(x) && length(x) == 1) {
+          paste0(x, "%")
+        } else if (is.data.frame(x) && nrow(x) > 0) {
+          filename <- attr(x, "filename")
+          if (!is.null(filename)) {
+            filename
+          } else {
+            paste0("Excel (", nrow(x), " essences)")
+          }
+        } else {
+          "Vide"
+        }
+      })
+
+      paste0("Coupe_ON: [", paste(coupe_display, collapse = ", "), "]\n",
+             "Modif: [", paste(modif_display, collapse = ", "), "]")
+    } else {
+      "Aucune configuration"
+    }
+  })
+
+  output$display_tbe <- renderText({
+    if (!is.null(rv$tbe_vector)) {
+      paste0("TBE: [", paste(rv$tbe_vector, collapse = ", "), "]")
+    } else {
+      "Aucune configuration"
+    }
+  })
+
+  observe({
+    if (!is.null(input$annees_simulation) && !is.null(input$enable_coupe) && input$enable_coupe) {
+      new_horizon <- input$annees_simulation / 10
+
+      # Redimensionner le vecteur coupe_on
+      if (is.null(rv$coupe_on_vector) || length(rv$coupe_on_vector) != new_horizon) {
+        old_vector <- rv$coupe_on_vector
+        rv$coupe_on_vector <- rep(NA_real_, new_horizon)
+
+        # Conserver les anciennes valeurs si elles existent
+        if (!is.null(old_vector) && length(old_vector) > 0) {
+          copy_length <- min(length(old_vector), new_horizon)
+          rv$coupe_on_vector[1:copy_length] <- old_vector[1:copy_length]
+        }
+      }
+
+      # Redimensionner la liste coupe_modif
+      if (is.null(rv$coupe_modif_vector) || length(rv$coupe_modif_vector) != new_horizon) {
+        old_list <- rv$coupe_modif_vector
+        rv$coupe_modif_vector <- vector("list", new_horizon)
+
+        # Conserver les anciennes valeurs si elles existent
+        if (!is.null(old_list) && length(old_list) > 0) {
+          copy_length <- min(length(old_list), new_horizon)
+          rv$coupe_modif_vector[1:copy_length] <- old_list[1:copy_length]
+        }
+      }
+    }
+  })
+
+  # Observer similaire pour TBE
+  observe({
+    if (!is.null(input$annees_simulation) && !is.null(input$enable_tbe) && input$enable_tbe) {
+      new_horizon <- input$annees_simulation / 10
+
+      # Redimensionner le vecteur TBE
+      if (is.null(rv$tbe_vector) || length(rv$tbe_vector) != new_horizon) {
+        old_vector <- rv$tbe_vector
+        rv$tbe_vector <- rep(0, new_horizon)
+
+        # Conserver les anciennes valeurs si elles existent
+        if (!is.null(old_vector) && length(old_vector) > 0) {
+          copy_length <- min(length(old_vector), new_horizon)
+          rv$tbe_vector[1:copy_length] <- old_vector[1:copy_length]
+        }
+      }
+    }
+  })
 
 
 
@@ -1462,6 +1887,25 @@ server <- function(input, output, session) {
                         input$rcp,
                         "RCP45")  # Valeur par défaut
 
+
+    coupe_on <- if (!is.null(input$enable_coupe) && input$enable_coupe) {
+      rv$coupe_on_vector
+    } else {
+      NULL
+    }
+
+    coupe_modif <- if (!is.null(input$enable_coupe) && input$enable_coupe) {
+      as.list(rv$coupe_modif_vector)
+    } else {
+      NULL
+    }
+
+    tbe <- if (!is.null(input$enable_tbe) && input$enable_tbe) {
+      rv$tbe_vector
+    } else {
+      NULL
+    }
+
     # Exécuter la fonction simulateurArtemis dans un bloc tryCatch pour gérer les erreurs
     result <- tryCatch({
       # Appel à la fonction simulateurArtemis avec les paramètres appropriés
@@ -1475,7 +1919,10 @@ server <- function(input, output, session) {
         EvolClim = EvolClim,
         AccModif = AccModif,
         MortModif = MortModif,
-        RCP = RCP_value
+        RCP = RCP_value,
+        Coupe_ON = coupe_on,
+        Coupe_modif = coupe_modif,
+        TBE = tbe
       )
     }, error = function(e) {
       removeModal()
@@ -1613,6 +2060,11 @@ server <- function(input, output, session) {
   observeEvent(input$close_simulation, {
     removeModal()
 
+    if (!is.null(rv$resultats_simulation)) {
+      saveRDS(rv$resultats_simulation, "cached_simulation_results.rds")
+      cat("✓ Simulation results saved for development\n")
+    }
+
     rv$simulation_terminee <- TRUE
     updateTabItems(session, "sidebarMenu", "results")
   })
@@ -1649,50 +2101,342 @@ server <- function(input, output, session) {
     )
   })
 
+  observeEvent(input$add_grade2, {
+    rv$show_grade2 <- TRUE
+  })
 
+  observeEvent(input$add_grade3, {
+    rv$show_grade3 <- TRUE
+  })
 
-  observeEvent(input$Sortie, {
-    if (!is.null(input$Sortie) && input$Sortie == "echelle_billon" && !is.null(rv$resultats_simulation)) {
-      req(input$typeBillonnage)
-      rv$processed_Billonage <- SortieBillonage(Data = rv$resultats_simulation, Type = input$typeBillonnage)
+  observeEvent(input$remove_grade2, {
+    rv$show_grade2 <- FALSE
+    rv$show_grade3 <- FALSE  # Si on supprime Grade 2, supprimer aussi Grade 3
+
+    # Réinitialiser les valeurs du Grade 2 et 3
+    updateTextInput(session, "nom_grade2", value = "")
+    updateSelectInput(session, "long_grade2", selected = "-- Aucune --")
+    updateNumericInput(session, "diam_grade2", value = NA)
+
+    updateTextInput(session, "nom_grade3", value = "")
+    updateSelectInput(session, "long_grade3", selected = "-- Aucune --")
+    updateNumericInput(session, "diam_grade3", value = NA)
+  })
+
+  observeEvent(input$remove_grade3, {
+    rv$show_grade3 <- FALSE
+
+    # Réinitialiser les valeurs du Grade 3
+    updateTextInput(session, "nom_grade3", value = "")
+    updateSelectInput(session, "long_grade3", selected = "-- Aucune --")
+    updateNumericInput(session, "diam_grade3", value = NA)
+  })
+
+  # Observer pour afficher le Grade 3 (seulement si Grade 2 existe)
+  observeEvent(input$add_grade3, {
+    if (rv$show_grade2) {  # Vérification de sécurité
+      rv$show_grade3 <- TRUE
     }
   })
 
-  observeEvent(input$typeBillonnage, {
-    if (!is.null(input$Sortie) && input$Sortie == "echelle_billon" && !is.null(rv$resultats_simulation)) {
-      rv$processed_Billonage <- SortieBillonage(Data = rv$resultats_simulation, Type = input$typeBillonnage)
+  output$add_grade2_button <- renderUI({
+    if (!rv$show_grade2) {
+      div(
+        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed ##3c8dbc; border-radius: 5px; background-color: #f0f9ff;",
+        actionButton("add_grade2",
+                     "Ajouter Grade 2",
+                     style = "background-color: ##3c8dbc; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
+                     icon = icon("plus-circle"))
+      )
     }
   })
 
-  observe({
-    req(input$Sortie)
-    sortie <- input$Sortie
-    simplifier <- input$simplifier
+  # Section du Grade 2
+  output$add_grade2_button <- renderUI({
+    if (!rv$show_grade2) {
+      div(
+        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed #3c8dbc; border-radius: 5px; background-color: #f0f9ff;",
+        actionButton("add_grade2",
+                     "Ajouter Grade 2",
+                     style = "background-color: #3c8dbc; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
+                     icon = icon("plus-circle"))
+      )
+    }
+  })
 
-    if (is.null(sortie) || sortie == "") {
-      return()
-    } else if (is.null(rv$resultats_simulation)) {
+  output$grade2_section <- renderUI({
+    if (rv$show_grade2) {
+      div(
+        style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 10px; position: relative; border-left: 4px solid #3c8dbc; animation: fadeIn 0.3s ease-in;",
+
+        tags$style(HTML("
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      ")),
+
+        div(
+          style = "position: absolute; top: 10px; right: 10px;",
+          actionButton("remove_grade2",
+                       "",
+                       style = "background-color: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 50%; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);",
+                       icon = icon("times"),
+                       title = "Supprimer le Grade 2 (et Grade 3 si présent)")
+        ),
+
+        h6("Grade 2", style = "color: #3c8dbc; font-weight: bold; margin-right: 40px;"),
+        p("(Optionnel)", style = "font-size: 0.8em; color: #6c757d; margin: 0 0 15px 0;"),
+
+        textInput("nom_grade2", "Nom du grade 2:", value = "pate"),
+        selectInput("long_grade2", "Longueur (pieds):",
+                    choices = c("-- Aucune --", "Indéfini", "4", "8", "12"), selected = "4"),
+        numericInput("diam_grade2", "Diamètre au fin bout(cm):",
+                     value = 8, min = 0, max = 100, step = 0.1)
+      )
+    }
+  })
+
+  output$add_grade3_button <- renderUI({
+    if (rv$show_grade2 && !rv$show_grade3) {
+      div(
+        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed #3c8dbc; border-radius: 5px; background-color: #faf8ff;",
+            actionButton("add_grade3",
+            "Ajouter Grade 3",
+            style = "background-color: #3c8dbc; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
+            icon = icon("plus-circle"))
+      )
+    }
+  })
+
+  output$grade3_section <- renderUI({
+    if (rv$show_grade3) {
+      div(
+        style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 10px; position: relative; border-left: 4px solid #3c8dbc; animation: fadeIn 0.3s ease-in;",
+
+        div(
+          style = "position: absolute; top: 10px; right: 10px;",
+          actionButton("remove_grade3",
+                       "",
+                       style = "background-color: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 50%; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);",
+                       icon = icon("times"),
+                       title = "Supprimer le Grade 3")
+        ),
+
+        h6("Grade 3", style = "color: #3c8dbc; font-weight: bold; margin-right: 40px;"),
+        p("(Optionnel)", style = "font-size: 0.8em; color: #6c757d; margin: 0 0 15px 0;"),
+
+        textInput("nom_grade3", "Nom du grade 3:", value = ""),
+        selectInput("long_grade3", "Longueur (pieds):",
+                    choices = c("-- Aucune --", "Indéfini", "4", "8", "12"),
+                    selected = "-- Aucune --"),
+        numericInput("diam_grade3", "Diamètre au fin bout(cm):",
+                     value = NA, min = 0, max = 100, step = 0.1)
+      )
+    }
+  })
+
+
+
+  observeEvent(input$calculer_billonnage, {
+    # Vérifier SEULEMENT les paramètres de base requis pour Shiny
+    req(input$dhs_input, input$typeBillonnage, rv$resultats_simulation)
+
+    # Validation minimale : s'assurer qu'au moins le nom du Grade 1 n'est pas vide
+    if(is.null(input$nom_grade1) || input$nom_grade1 == "") {
+      showNotification("Le nom du Grade 1 est obligatoire",
+                       type = "error", duration = 5)
       return()
     }
 
-    # Exécution de switch avec une valeur valide de sortie
-    switch(sortie,
+    withProgress(message = 'Calcul du billonnage en cours...', value = 0, {
+
+      incProgress(0.1, detail = "Validation des paramètres...")
+
+      # Conversion des types (permettre NA pour tous les grades)
+      dhs_val <- as.numeric(input$dhs_input)
+
+      # Déterminer la valeur du paramètre simplifier basé sur le bouton radio
+      simplifier_val <- input$simplifier
+
+      suppressWarnings({
+        incProgress(0.2, detail = "Traitement des longueurs...")
+
+        # Gestion des longueurs avec menu déroulant
+        long_grade1_val <- if(is.null(input$long_grade1) || input$long_grade1 == "Indéfini") {
+          NA_real_
+        } else {
+          as.numeric(input$long_grade1)
+        }
+
+        if(!is.null(input$long_grade1) && input$long_grade1 == "Indéfini" &&
+           (is.null(input$nom_grade1) || input$nom_grade1 == "") &&
+           (is.null(input$diam_grade1) || is.na(input$diam_grade1))) {
+          showNotification("Grade 1 : Si la longueur est définie (même comme 'Indéfini'), le nom et le diamètre doivent être fournis",
+                           type = "error", duration = 5)
+          return()
+        }
+
+        # Grade 2 - Seulement si affiché ET les inputs existent
+        long_grade2_val <- NA_real_
+        if (!is.null(rv$show_grade2) && isTRUE(rv$show_grade2) && !is.null(input$long_grade2)) {
+          long_grade2_val <- if(input$long_grade2 == "Indéfini" || input$long_grade2 == "-- Aucune --") {
+            NA_real_
+          } else {
+            as.numeric(input$long_grade2)
+          }
+
+          # Validations pour Grade 2
+          if(input$long_grade2 == "Indéfini" &&
+             (is.null(input$nom_grade2) || input$nom_grade2 == "") &&
+             (is.null(input$diam_grade2) || is.na(input$diam_grade2))) {
+            showNotification("Grade 2 : Si la longueur est définie (même comme 'Indéfini'), le nom et le diamètre doivent être fournis",
+                             type = "error", duration = 5)
+            return()
+          }
+
+          if((!is.null(input$nom_grade2) && input$nom_grade2 != "") ||
+             (!is.null(input$diam_grade2) && !is.na(input$diam_grade2))) {
+            if(input$long_grade2 == "" || input$long_grade2 == "-- Aucune --") {
+              showNotification("Grade 2 : Vous avez défini un nom ou un diamètre mais aucune longueur.",
+                               type = "error", duration = 5)
+              return()
+            }
+          }
+        }
+
+        # Grade 3 - Seulement si affiché ET les inputs existent
+        long_grade3_val <- NA_real_
+        if (!is.null(rv$show_grade3) && isTRUE(rv$show_grade3) && !is.null(input$long_grade3)) {
+          long_grade3_val <- if(input$long_grade3 == "Indéfini" || input$long_grade3 == "-- Aucune --") {
+            NA_real_
+          } else {
+            as.numeric(input$long_grade3)
+          }
+
+          # Validations pour Grade 3
+          if(input$long_grade3 == "Indéfini" &&
+             (is.null(input$nom_grade3) || input$nom_grade3 == "") &&
+             (is.null(input$diam_grade3) || is.na(input$diam_grade3))) {
+            showNotification("Grade 3 : Si la longueur est définie (même comme 'Indéfini'), le nom et le diamètre doivent être fournis",
+                             type = "error", duration = 5)
+            return()
+          }
+
+          if((!is.null(input$nom_grade3) && input$nom_grade3 != "") ||
+             (!is.null(input$diam_grade3) && !is.na(input$diam_grade3))) {
+            if(input$long_grade3 == "" || input$long_grade3 == "-- Aucune --") {
+              showNotification("Grade 3 : Vous avez défini un nom ou un diamètre mais aucune longueur.",
+                               type = "error", duration = 5)
+              return()
+            }
+          }
+        }
+
+        incProgress(0.3, detail = "Traitement des diamètres...")
+
+        # Gestion des diamètres - avec protection NULL
+        diam_grade1_val <- if(is.null(input$diam_grade1) || is.na(input$diam_grade1)) {
+          NA_real_
+        } else {
+          as.numeric(input$diam_grade1)
+        }
+
+        diam_grade2_val <- if(!is.null(rv$show_grade2) && isTRUE(rv$show_grade2) &&
+                              !is.null(input$diam_grade2) && !is.na(input$diam_grade2)) {
+          as.numeric(input$diam_grade2)
+        } else {
+          NA_real_
+        }
+
+        diam_grade3_val <- if(!is.null(rv$show_grade3) && isTRUE(rv$show_grade3) &&
+                              !is.null(input$diam_grade3) && !is.na(input$diam_grade3)) {
+          as.numeric(input$diam_grade3)
+        } else {
+          NA_real_
+        }
+
+        incProgress(0.4, detail = "Préparation des noms de grades...")
+
+        # Gestion des noms avec protection NULL
+        nom_grade1_val <- as.character(input$nom_grade1)
+
+        nom_grade2_val <- if(!is.null(rv$show_grade2) && isTRUE(rv$show_grade2) &&
+                             !is.null(input$nom_grade2) && input$nom_grade2 != "") {
+          as.character(input$nom_grade2)
+        } else {
+          NA_character_
+        }
+
+        nom_grade3_val <- if(!is.null(rv$show_grade3) && isTRUE(rv$show_grade3) &&
+                             !is.null(input$nom_grade3) && input$nom_grade3 != "") {
+          as.character(input$nom_grade3)
+        } else {
+          NA_character_
+        }
+      }) # Fin suppressWarnings
+
+      incProgress(0.5, detail = "Exécution du calcul de billonnage...")
+
+      # Exécuter SortieBillesFusion
+      tryCatch({
+        rv$processed_Billonage <- SortieBillesFusion(
+          Data = rv$resultats_simulation,
+          Type = as.character(input$typeBillonnage),
+          dhs = dhs_val,
+          nom_grade1 = nom_grade1_val,
+          long_grade1 = long_grade1_val,
+          diam_grade1 = diam_grade1_val,
+          nom_grade2 = nom_grade2_val,
+          long_grade2 = long_grade2_val,
+          diam_grade2 = diam_grade2_val,
+          nom_grade3 = nom_grade3_val,
+          long_grade3 = long_grade3_val,
+          diam_grade3 = diam_grade3_val,
+          Simplifier = simplifier_val
+        )
+
+        incProgress(0.9, detail = "Finalisation...")
+        rv$processed_Simul <- rv$processed_Billonage
+
+        incProgress(1, detail = "Terminé!")
+
+        showNotification("Billonnage calculé avec succès!", type = "message", duration = 3)
+
+      }, error = function(e) {
+        cat("✗ Erreur billonnage:", e$message, "\n")
+        showNotification(paste("Erreur:", e$message), type = "error", duration = 5)
+        rv$processed_Billonage <- NULL
+        rv$processed_Simul <- NULL
+      })
+
+    }) # Fin du withProgress
+  })
+
+  observeEvent(c(input$Sortie, input$simplifier), {
+    req(input$Sortie, rv$resultats_simulation)
+
+    switch(input$Sortie,
            "arbre" = {
-             rv$processed_Simul <- SortieArbre(SimulHtVol = rv$resultats_simulation, simplifier = simplifier)
+             rv$processed_Simul <- SortieArbre(SimulHtVol = rv$resultats_simulation,
+                                               simplifier = input$simplifier)
            },
            "placette" = {
-             rv$processed_Simul <- Sortieplacette(SimulHtVol = rv$resultats_simulation, simplifier = simplifier)
+             rv$processed_Simul <- SortiePlacette(SimulHtVol = rv$resultats_simulation,
+                                                  simplifier = input$simplifier)
            },
            "echelle_billon" = {
-             rv$processed_Simul <- rv$processed_Billonage
-           },
-           default = {
-             rv$processed_Simul <- rv$resultats_simulation
+             # Attendre que processed_Billonage soit disponible
+             if (!is.null(rv$processed_Billonage)) {
+               rv$processed_Simul <- rv$processed_Billonage
+             } else {
+               # Si pas encore traité, déclencher une invalidation pour réessayer
+               invalidateLater(100, session)
+               return()
+             }
            }
     )
-  })
-
-
+  }, ignoreInit = TRUE)
 
   output$resultat_graphique <- renderPlot({
     req(rv$resultats_simulation)
@@ -1767,7 +2511,7 @@ server <- function(input, output, session) {
     filename = function() {
       if(!(input$Sortie == "echelle_billon")){
 
-      paste("resultats_simulation_artemis_sortie_",input$Sortie,"_",Sys.Date(), ".csv", sep = "")
+        paste("resultats_simulation_artemis_sortie_",input$Sortie,"_",Sys.Date(), ".csv", sep = "")
 
       }
       else{
@@ -1923,7 +2667,3 @@ server <- function(input, output, session) {
 
 # Lancer l'application
 shinyApp(ui = ui, server = server)
-
-
-
-
