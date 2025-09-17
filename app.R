@@ -707,7 +707,7 @@ server <- function(input, output, session) {
       output$extraction_question <- renderUI({
         div(
           style = "margin-top: 20px; padding: 15px; background-color: #e8f4f8; border-radius: 5px; border: 1px solid #81B7F0;",
-          h4("Concernant les données climatiques, que souhaitez-vous faire ?"),
+          h4("Données climatiques"),
 
           # Si l'âge moyen n'est pas valide, on désactive les deux premières options
           if (!rv$age_moy_valid) {
@@ -715,8 +715,8 @@ server <- function(input, output, session) {
               radioButtons("extraction_choice", "",
                            choices = list(
                              "Simuler les données climatiques" = "extract",
-                             "Fournir mes propres fichiers climatiques" = "upload",
-                             "Ne pas utiliser de données climatiques" = "none"
+                             "Fournir les données climatiques" = "upload",
+                             "Simulation sans données climatiques" = "none"
                            ),
                            selected = "none"),
               tags$script(HTML("
@@ -735,8 +735,8 @@ server <- function(input, output, session) {
             radioButtons("extraction_choice", "",
                          choices = list(
                            "Simuler les données climatiques" = "extract",
-                           "Fournir mes propres fichiers climatiques" = "upload",
-                           "Ne pas utiliser de données climatiques" = "none"
+                           "Fournir les données climatiques" = "upload",
+                           "Simulation sans données climatiques" = "none"
                          ),
                          selected = character(0))
           },
@@ -744,7 +744,7 @@ server <- function(input, output, session) {
           # Ajout du bouton Valider
           div(
             style = "margin-top: 15px; text-align: center;",
-            actionButton("validate_extraction_choice", "Valider",
+            actionButton("validate_extraction_choice", "Suivant",
                          style = "background-color: #4D90D6; color: white; width: 100%;")
           )
         )
@@ -785,7 +785,7 @@ server <- function(input, output, session) {
       output$extraction_button <- renderUI({
         div(
           style = "margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6;",
-          h4("Configuration de l'extraction", style = "margin-top: 0;"),
+          h4("Configuration de la simulation", style = "margin-top: 0;"),
 
           # Année de départ
           numericInput(
@@ -826,7 +826,7 @@ server <- function(input, output, session) {
       output$extraction_button <- renderUI({
         div(
           style = "margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6;",
-          h4("Importer vos propres fichiers climatiques", style = "margin-top: 0;"),
+          h4("Importer des données climatiques", style = "margin-top: 0;"),
 
           # File input pour le climat annuel
           fileInput("climat_annuel_file", "Fichier climat annuel (CSV)",
@@ -850,8 +850,9 @@ server <- function(input, output, session) {
             actionBttn(
               "validate_climat_files",
               "Valider les fichiers climatiques",
-              style = "gradient",
-              color = "royal",
+              #style = "gradient",
+              #color = "royal",
+              type="primary",
               icon = icon("check"),
               block = TRUE
             )
@@ -1058,13 +1059,13 @@ server <- function(input, output, session) {
     rcp <- input$rcp
 
     showModal(modalDialog(
-      title = "Extraction en cours",
+      title = "Simulation en cours",
       div(
         style = "text-align: center;",
         img(src = "https://i.gifer.com/origin/b4/b4d657e7ef262b88eb5f7ac021edda87.gif",
             height = "100px",
             style = "margin-bottom: 20px;"),
-        p("Extraction des données climatiques en cours..."),
+        p("Simulation des données climatiques en cours..."),
         p(style = "font-size: 0.9em; color: #6c757d;",
           paste0("Paramètres: Année de départ = ", annee_depart,
                  ", Horizon = ", horizon, " ans (jusqu'à ", annee_fin,
@@ -1078,7 +1079,7 @@ server <- function(input, output, session) {
     result <- tryCatch({
       GenereClimat(Data_Ori= data() ,AnneeDep = annee_depart,AnneeFin = annee_fin,  RCP = rcp)
     }, error = function(e) {
-      showNotification(paste("Erreur lors de l'extraction:", e$message), type = "error", duration = 10)
+      showNotification(paste("Erreur lors de la simulation:", e$message), type = "error", duration = 10)
       return(NULL)
     })
 
@@ -1096,7 +1097,7 @@ server <- function(input, output, session) {
 
     # Afficher un résultat d'extraction avec les paramètres utilisés
     showModal(modalDialog(
-      title = "Extraction terminée",
+      title = "Simulation terminée",
       div(
         style = "text-align: center;",
         icon("check-circle", class = "fa-3x", style = "color: #4D90D6; margin-bottom: 15px;"),
@@ -1116,10 +1117,10 @@ server <- function(input, output, session) {
           downloadButton("download_annuel", "Télécharger climat annuel",
                          style = "background-color: #4D90D6; color: white;"),
           downloadButton("download_mensuel", "Télécharger climat mensuel",
-                         style = "background-color: #17a2b8; color: white;")
+                         style = "background-color: #4D90D6; color: white;")
         )
       ),
-      footer = actionButton("close_extraction", "Fermer",
+      footer = actionButton("close_extraction", "Suivant",
                             style = "background-color: #007bff; color: white;"),
       easyClose = FALSE,      # Changement ici: passer à FALSE
       backdrop = "static"     # Ajout: empêche la fermeture en cliquant sur l'arrière-plan
@@ -1167,8 +1168,9 @@ server <- function(input, output, session) {
         actionBttn(
           "extract_climate",
           "Simuler les données climatiques",
-          style = "gradient",
-          color = "royal",
+          #style = "gradient",
+          type="primary",
+          #color = "royal",
           icon = icon("cloud-download-alt"),
           block = TRUE
         ),
@@ -1254,8 +1256,8 @@ server <- function(input, output, session) {
                 radioButtons("module_accroissement", "",
                              choices = list(
                                "Original" = "original",
-                               "BRT" = "brt",
-                               "GAM" = "gam"),
+                               "Wang 2023" = "brt",
+                               "D'Orangeville 2018" = "gam"),
                              selected = "original"),
                 tags$script(HTML(paste0("
                 $(document).ready(function() {
@@ -1265,7 +1267,7 @@ server <- function(input, output, session) {
               "))),
                 tags$div(
                   style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
-                  "Les options avancées (BRT, GAM) sont désactivées car vous avez choisi de ne pas utiliser de données climatiques"
+                  "Les modules Wang 2023 et D'Orangeville 2018 sont désactivées car vous avez choisi de ne pas utiliser de données climatiques"
                 )
               )
             } else {
@@ -1273,8 +1275,8 @@ server <- function(input, output, session) {
               radioButtons("module_accroissement", "",
                            choices = list(
                              "Original" = "original",
-                             "BRT" = "brt",
-                             "GAM" = "gam"),
+                             "Wang 2023" = "brt",
+                             "D'Orangeville 2018" = "gam"),
                            selected = "original")
             }
           ),
@@ -1289,7 +1291,7 @@ server <- function(input, output, session) {
                 radioButtons("module_mortalite", "",
                              choices = list(
                                "Original" = "original",
-                               "QUE" = "que"),
+                               "Power 2025" = "que"),
                              selected = "original"),
                 tags$script(HTML("
                 $(document).ready(function() {
@@ -1298,7 +1300,7 @@ server <- function(input, output, session) {
               ")),
                 tags$div(
                   style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
-                  "L'option QUE est désactivée car vous avez choisi de ne pas utiliser de données climatiques"
+                  "Le module Power 2025 est désactivée car vous avez choisi de ne pas utiliser de données climatiques"
                 )
               )
             } else {
@@ -1306,7 +1308,7 @@ server <- function(input, output, session) {
               radioButtons("module_mortalite", "",
                            choices = list(
                              "Original" = "original",
-                             "QUE" = "que"),
+                             "Power 2025" = "que"),
                            selected = "original")
             }
           ),
@@ -1329,7 +1331,7 @@ server <- function(input, output, session) {
               ")),
                 tags$div(
                   style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
-                  "Ce champ est automatiquement défini selon l'horizon d'extraction climatique"
+                  "Ce champ est automatiquement défini selon l'horizon de simulation climatique"
                 )
               )
             } else {
@@ -1807,7 +1809,7 @@ server <- function(input, output, session) {
     if (no_climate_data) {
       if (input$module_accroissement == "brt" || input$module_accroissement == "gam") {
         showNotification(
-          "Les modules d'accroissement BRT et GAM nécessitent des données climatiques.",
+          "Les modules d'accroissement Wang 2023 et D'Orangeville 2018 nécessitent des données climatiques.",
           type = "error",
           duration = 5
         )
@@ -1816,7 +1818,7 @@ server <- function(input, output, session) {
 
       if (input$module_mortalite == "que") {
         showNotification(
-          "Le module de mortalité QUE nécessite des données climatiques.",
+          "Le module de mortalité Power 2025 nécessite des données climatiques.",
           type = "error",
           duration = 5
         )
@@ -1874,7 +1876,7 @@ server <- function(input, output, session) {
       AccModif <- switch(input$module_accroissement,
                          "original" = "ORI",
                          "brt" = "BRT",
-                         "gam" = "GAM")
+                         "gam" = "GAM" )
       MortModif <- switch(input$module_mortalite,
                           "original" = "ORI",
                           "que" = "QUE")
@@ -1916,7 +1918,7 @@ server <- function(input, output, session) {
         Residuel = Residuel,
         EvolClim = EvolClim,
         AccModif = AccModif,
-        MortModif = "ORI",
+        MortModif = MortModif,
         RCP = RCP_value,
         Coupe_ON = coupe_on,
         Coupe_modif = coupe_modif,
@@ -1942,12 +1944,12 @@ server <- function(input, output, session) {
       # Définir les valeurs réelles utilisées pour les modules en cas d'absence de données climatiques
       module_acc_utilise <- if (no_climate_data) "Original (ORI)" else switch(input$module_accroissement,
                                                                               "original" = "Original (ORI)",
-                                                                              "brt" = "BRT",
-                                                                              "gam" = "GAM")
+                                                                              "brt" = "Wang 2023",
+                                                                              "gam" = "D'Orangeville 2018")
 
       module_mort_utilise <- if (no_climate_data) "Original (ORI)" else switch(input$module_mortalite,
                                                                                "original" = "Original (ORI)",
-                                                                               "que" = "QUE")
+                                                                               "que" = "Power 2025")
 
       # Afficher un résultat de simulation
       showModal(modalDialog(
@@ -1956,7 +1958,7 @@ server <- function(input, output, session) {
           style = "text-align: center;",
           icon("check-circle", class = "fa-3x", style = "color: #4D90D6; margin-bottom: 15px;"),
           h4("La simulation a été effectuée avec succès !"),
-          p("Vous pouvez télécharger les résultats ci-dessous :"),
+          #p("Vous pouvez télécharger les résultats ci-dessous :"),
           div(
             style = "margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px; text-align: left;",
             h5("Paramètres utilisés :"),
@@ -1982,7 +1984,7 @@ server <- function(input, output, session) {
             #                style = "background-color: #28a745; color: white;")
           )
         ),
-        footer = actionButton("close_simulation", "Fermer",
+        footer = actionButton("close_simulation", "Suivant",
                               style = "background-color: #007bff; color: white;"),
         easyClose = FALSE,
         backdrop = "static"
