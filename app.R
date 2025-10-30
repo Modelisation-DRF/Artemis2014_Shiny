@@ -258,14 +258,14 @@ ui <- dashboardPage(
                         selected = ""),
             conditionalPanel(
               condition = "input.Sortie == 'echelle_billon'",
-              selectInput("typeBillonnage", "Type de Billonnage Pétro:",
+              selectInput("typeBillonnage", "Billonnage Feuillus durs (Pétro):",
                           choices = list("DHP_Régionalisé" = "DHP", "DHP_Provincial" = "DHP2015")
               )
             ),
 
             conditionalPanel(
               condition = "input.Sortie == 'echelle_billon'",
-              h5("Paramètres Sybille", style = "color: #856404; font-weight: bold; margin-top: 15px;"),
+              h5("Billonnage Résineux", style = "font-weight: bold; margin-top: 15px;"),
               div(
                 style = "margin-bottom: 10px;",
                 numericInput("dhs_input",
@@ -292,7 +292,7 @@ ui <- dashboardPage(
               div(
                 style = "margin-top: 15px; text-align: center;",
                 actionButton("calculer_billonnage",
-                             "Calculer le billonnage",
+                             "Simuler le billonnage",
                              style = "background-color: #3c8dbc; color: white; width: 100%;",
                              icon = icon("calculator"))
               )
@@ -515,7 +515,7 @@ server <- function(input, output, session) {
     processed_Simul = NULL,
     listeEspece = NULL,
     simulation_terminee = FALSE,
-    show_grade2 = TRUE,
+    show_grade2 = FALSE,
     show_grade3 = FALSE
 
   )
@@ -844,6 +844,14 @@ server <- function(input, output, session) {
                       ".csv")
           ),
 
+          # RCP
+          radioButtons(
+            "rcp",
+            "Scénario RCP :",
+            choices = list("RCP 4.5" = "RCP45", "RCP 8.5" = "RCP85"),
+            selected = "RCP45"
+          ),
+
           # Bouton pour valider l'importation
           div(
             style = "margin-top: 15px;",
@@ -920,16 +928,12 @@ server <- function(input, output, session) {
       # Lire le fichier climat annuel
       climat_annuel <- read.csv(input$climat_annuel_file$datapath,
                                 header = TRUE,
-                                sep = ";",
-                                quote = "",
-                                encoding = "UTF-8")
+                                sep = ";")
 
       # Lire le fichier climat mensuel
       climat_mensuel <- read.csv(input$climat_mensuel_file$datapath,
                                  header = TRUE,
-                                 sep = ";",
-                                 quote = "",
-                                 encoding = "UTF-8")
+                                 sep = ";")
 
       # Vérifier les fichiers avec les fonctions du package Artemis
       erreurs_annuel <- verifier_colonnes_ClimAn(climat_annuel)
@@ -1155,11 +1159,11 @@ server <- function(input, output, session) {
     req(input$annee_depart, input$horizon, input$rcp)
 
     # Vérifier que l'horizon est au moins de 2
-    if (input$horizon < 2) {
+    if (input$horizon < 2|input$horizon %% 10 != 0 |input$annee_depart+input$horizon>2100) {
       div(
         style = "color: #dc3545; margin-top: 15px;",
         icon("exclamation-triangle"),
-        "L'horizon doit être d'au moins 2 ans."
+        "L'horizon doit être un multiple de 10 d'au moins 2 ans qui se termine avant 2100."
       )
     } else {
       # Tout est valide, afficher le bouton
@@ -1257,17 +1261,19 @@ server <- function(input, output, session) {
                              choices = list(
                                "Original" = "original",
                                "Wang 2023" = "brt",
-                               "D'Orangeville 2018" = "gam"),
+                               "D'Orangeville 2018" = "gam",
+                               "Fortin 2026" = "fortin"),
                              selected = "original"),
                 tags$script(HTML(paste0("
                 $(document).ready(function() {
                   $('input[name=\"module_accroissement\"][value=\"brt\"]').prop('disabled', true);
                   $('input[name=\"module_accroissement\"][value=\"gam\"]').prop('disabled', true);
+                  $('input[name=\"module_accroissement\"][value=\"fortin\"]').prop('disabled', true);
                 });
               "))),
                 tags$div(
                   style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
-                  "Les modules Wang 2023 et D'Orangeville 2018 sont désactivées car vous avez choisi de ne pas utiliser de données climatiques"
+                  "Les modules Wang 2023, D'Orangeville 2018 et Fortin 2026 sont désactivées car vous avez choisi de ne pas utiliser de données climatiques"
                 )
               )
             } else {
@@ -1276,7 +1282,8 @@ server <- function(input, output, session) {
                            choices = list(
                              "Original" = "original",
                              "Wang 2023" = "brt",
-                             "D'Orangeville 2018" = "gam"),
+                             "D'Orangeville 2018" = "gam",
+                             "Fortin 2026" = "fortin"),
                            selected = "original")
             }
           ),
@@ -1394,13 +1401,13 @@ server <- function(input, output, session) {
           div(
             style = "margin-top: 15px;",
             h5("Tordeuse des bourgeons de l'épinette (TBE)", style = "color: #2c3e50; font-weight: bold;"),
-            checkboxInput("enable_tbe", "Activer l'effet TBE", value = FALSE),
+            checkboxInput("enable_tbe", "Activer défoliation TBE", value = FALSE),
 
             conditionalPanel(
               condition = "input.enable_tbe == true",
               div(
                 style = "margin-top: 10px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
-                p("Sélectionnez les décennies avec effet TBE:",
+                p("Sélectionnez les décennies avec défoliation sévère par la TBE:",
                   style = "font-size: 0.9em; margin-bottom: 10px;"),
 
                 # Interface pour sélectionner les années avec TBE
@@ -1480,8 +1487,13 @@ server <- function(input, output, session) {
         style = "margin-bottom: 15px;",
         selectInput("type_coupe", "Type de coupe:",
                     choices = c("Aucune coupe" = "NA",
-                                setNames(0:18, paste("Coupe", 0:18))),
+                                 setNames(c(0:1,6:9,12:19), c("Coupe d'amélioration","Coupe d'éclaircie","Coupe de jardinage","Coupe progressive",
+                                                     "Éclaircie commerciale","Éclaicie sélective","Coupe progressive (CPI_CP)",
+                                                     "Coupe progressive (CPI_RL)","Coupe réserve semanciers","Jardinage CIMOTFF",
+                                                     "Jarinage gr. arbres CIMOTFF", "CPI_CP CIMOTFF","CPI_RL CIMOTFF","CPRS"))),
+                                #setNames(0:1,c("Éclaicie","CPRS"))),
                     selected = "NA")
+
       ),
 
       # Section pour le type de modificateur
@@ -1517,11 +1529,11 @@ server <- function(input, output, session) {
 
       div(
         style = "margin-bottom: 10px;",
-        div(
-          style = "margin-bottom: 5px;",
-          actionButton("apply_coupe", "Appliquer la coupe",
-                       style = "background-color: #3c8dbc; color: white; width: 100%;")
-        ),
+        # div(
+        #   style = "margin-bottom: 5px;",
+        #   actionButton("apply_coupe", "Appliquer la coupe",
+        #                style = "background-color: #3c8dbc; color: white; width: 100%;")
+        # ),
         div(
           actionButton("clear_coupes", "Effacer toutes les coupes",
                        style = "background-color: #dc3545; color: white; width: 100%;")
@@ -1545,26 +1557,26 @@ server <- function(input, output, session) {
     div(
       div(
         style = "margin-bottom: 15px;",
-        selectInput("decennie_tbe", "Décennie TBE:",
+        selectInput("decennie_tbe", "Décennie:",
                     choices = setNames(0:(horizon-1), paste("Décennie", 0:(horizon-1), "-", 1:horizon)),
                     selected = NULL)
       ),
       div(
         style = "margin-bottom: 15px;",
-        selectInput("effet_tbe", "Effet TBE:",
+        selectInput("effet_tbe", "Défoliation TBE:",
                     choices = list("Absent" = 0, "Présent" = 1),
                     selected = 0)
       ),
 
       div(
         style = "margin-bottom: 10px;",
+        # div(
+        #   style = "margin-bottom: 5px;",
+        #   actionButton("apply_tbe", "Appliquer TBE",
+        #                style = "background-color: #3c8dbc; color: white; width: 100%;")
+        # ),
         div(
-          style = "margin-bottom: 5px;",
-          actionButton("apply_tbe", "Appliquer TBE",
-                       style = "background-color: #3c8dbc; color: white; width: 100%;")
-        ),
-        div(
-          actionButton("clear_tbe", "Effacer tous les TBE",
+          actionButton("clear_tbe", "Effacer défoliations TBE",
                        style = "background-color: #dc3545; color: white; width: 100%;")
         )
       ),
@@ -1579,7 +1591,7 @@ server <- function(input, output, session) {
   })
 
   # Observateurs pour appliquer les modifications aux vecteurs
-  observeEvent(input$apply_coupe, {
+  observeEvent( list(input$type_coupe, input$modif_coupe, input$modif_excel_file), {
     req(input$decennie_coupe, input$type_coupe)
 
     if (input$type_coupe == "NA") {
@@ -1643,7 +1655,9 @@ server <- function(input, output, session) {
                      type = "message", duration = 2)
   })
 
-  observeEvent(input$apply_tbe, {
+  observeEvent({input$decennie_tbe
+                input$effet_tbe
+  }, {
     req(input$decennie_tbe, input$effet_tbe)
 
     decennie_idx <- as.numeric(input$decennie_tbe) + 1
@@ -1876,7 +1890,8 @@ server <- function(input, output, session) {
       AccModif <- switch(input$module_accroissement,
                          "original" = "ORI",
                          "brt" = "BRT",
-                         "gam" = "GAM" )
+                         "gam" = "GAM",
+                         "fortin"="QUE")
       MortModif <- switch(input$module_mortalite,
                           "original" = "ORI",
                           "que" = "QUE")
