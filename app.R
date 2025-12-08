@@ -29,6 +29,7 @@ library(OutilsDRF)
 library(data.table)
 library(readxl)
 
+
 options(shiny.maxRequestSize = 500 * 1024^2)
 
 
@@ -360,18 +361,11 @@ ui <- dashboardPage(
                 class = "documentation-section",
                 style = "margin-bottom: 30px; background-color: #f8f9fa; padding: 20px; border-radius: 8px;",
                 h3("Documentation", style = "color: #4D90D6; font-weight: 600; margin-bottom: 15px;"),
-                p("Pour vous aider à utiliser efficacement Artemis, nous vous proposons un guide d'utilisation:", style = "font-size: 16px;"),
-                div(
-                  class = "text-center",
-                  style = "margin: 20px 0;",
-                  downloadButton(
-                    "download_guide",
-                    "Télécharger le guide d'utilisation",
-                    icon = icon("file-pdf"),
-                    style = "background-color: #4D90D6; color: white; padding: 10px 20px; font-size: 16px; border: none; border-radius: 4px;"
-                  )
-                ),
-                p("Ce guide contient des instructions détaillées sur la préparation des données et la configuration des simulations.", style = "font-size: 15px; color: #6c757d; font-style: italic;")
+                p("Pour vous aider à utiliser efficacement Artemis veuillez consulter la page Wiki de l'application:", style = "font-size: 16px;"),
+
+                strong(a("Aide application R Artémis", href="https://github.com/Modelisation-DRF/Artemis2014_Shiny/wiki",style = "font-size: 16px;")),
+                br(), br(),#####Ajout de sauts de ligne
+                p("Cette page contient des instructions détaillées sur la préparation des données et la configuration des simulations.", style = "font-size: 15px; color: #6c757d; font-style: italic;")
               ),
 
               # Section fichiers d'exemple
@@ -1046,10 +1040,10 @@ server <- function(input, output, session) {
     # Vérifier les paramètres
     req(input$annee_depart, input$horizon, input$rcp)
 
-    # S'assurer que l'horizon est d'au moins 2
-    if (input$horizon < 2) {
+    # S'assurer que l'horizon est d'au moins 10 ans
+    if (input$horizon < 10) {
       showNotification(
-        "L'horizon doit être d'au moins 2 ans.",
+        "L'horizon doit être d'au moins 10 ans.",
         type = "error",
         duration = 5
       )
@@ -1159,11 +1153,11 @@ server <- function(input, output, session) {
     req(input$annee_depart, input$horizon, input$rcp)
 
     # Vérifier que l'horizon est au moins de 2
-    if (input$horizon < 2|input$horizon %% 10 != 0 |input$annee_depart+input$horizon>2100) {
+    if (input$horizon < 10|input$horizon %% 10 != 0) {
       div(
         style = "color: #dc3545; margin-top: 15px;",
         icon("exclamation-triangle"),
-        "L'horizon doit être un multiple de 10 d'au moins 2 ans qui se termine avant 2100."
+        "L'horizon doit être un multiple de 10 d'au moins 10 ans."
       )
     } else {
       # Tout est valide, afficher le bouton
@@ -1403,6 +1397,11 @@ server <- function(input, output, session) {
             h5("Tordeuse des bourgeons de l'épinette (TBE)", style = "color: #2c3e50; font-weight: bold;"),
             checkboxInput("enable_tbe", "Activer défoliation TBE", value = FALSE),
 
+            tags$div(
+              style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
+              "La défoliation TBE s'active uniquement avec les modules d'accroissement et de moratlité 'Original'"
+            ),
+
             conditionalPanel(
               condition = "input.enable_tbe == true",
               div(
@@ -1415,6 +1414,8 @@ server <- function(input, output, session) {
               )
             )
           ),
+
+
 
           # Bouton pour lancer la simulation
           div(
@@ -1521,7 +1522,8 @@ server <- function(input, output, session) {
                       accept = c(".xlsx", ".xls", ".csv")),
             div(
               style = "font-size: 0.85em; color: #6c757d; font-style: italic;",
-              "Le fichier doit contenir les colonnes 'ess_ind' et 'modifier' (Excel ou CSV)"
+              "Le fichier doit contenir les colonnes 'ess_ind' et 'modifier'
+              (Excel ou CSV) modifier doit se situer entre -80 et 160%"
             )
           )
         )
