@@ -881,21 +881,8 @@ server <- function(input, output, session) {
       # Mettre à jour l'état indiquant que le processus est terminé
       rv$extraction_completed <- TRUE
 
-      # Passer directement à la question de simulation
-      output$simulation_message <- renderUI({
-        div(
-          style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
-          icon("info-circle"),
-          span(style = "font-weight: bold; margin-left: 5px;", "Vous avez choisi de ne pas utiliser de données climatiques"),
-          div(
-            style = "margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; text-align: center;",
-            h4("Souhaitez-vous effectuer une simulation?"),
-            radioButtons("simulation_choice", "",
-                         choices = list("Oui" = "yes", "Non" = "no"),
-                         selected = character(0))
-          )
-        )
-      })
+      simulation_ui()
+
     }
   })
 
@@ -995,21 +982,7 @@ server <- function(input, output, session) {
         # Mettre à jour l'état
         rv$extraction_completed <- TRUE
 
-        # Afficher le message pour passer à la simulation
-        output$simulation_message <- renderUI({
-          div(
-            style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
-            icon("check-circle"),
-            span(style = "font-weight: bold; margin-left: 5px;", "Fichiers climatiques importés avec succès"),
-            div(
-              style = "margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; text-align: center;",
-              h4("Souhaitez-vous effectuer une simulation?"),
-              radioButtons("simulation_choice", "",
-                           choices = list("Oui" = "yes", "Non" = "no"),
-                           selected = character(0))
-            )
-          )
-        })
+        simulation_ui()
       }
     }, error = function(e) {
       # Afficher une notification d'erreur
@@ -1188,21 +1161,7 @@ server <- function(input, output, session) {
     output$extraction_button <- renderUI({})
     output$extraction_button_final <- renderUI({})
 
-    # Demander à l'utilisateur s'il souhaite effectuer une simulation
-    output$simulation_message <- renderUI({
-      div(
-        style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
-        icon("check-circle"),
-        span(style = "font-weight: bold; margin-left: 5px;", "Extraction terminée avec succès"),
-        div(
-          style = "margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; text-align: center;",
-          h4("Souhaitez-vous effectuer une simulation?"),
-          radioButtons("simulation_choice", "",
-                       choices = list("Oui" = "yes", "Non" = "no"),
-                       selected = character(0))
-        )
-      )
-    })
+    simulation_ui()
 
     # Mettre à jour l'état
     rv$extraction_completed <- TRUE
@@ -1212,8 +1171,8 @@ server <- function(input, output, session) {
 
 
   # Observateur pour le choix de simulation - avec désactivation des options supplémentaires
-  observeEvent(input$simulation_choice, {
-    if (input$simulation_choice == "yes") {
+      simulation_ui <- function()
+      {
       # Rediriger vers le panel de simulation avec les nouvelles options
       output$simulation_message <- renderUI({
         # Variable pour savoir si l'option "none" a été choisie
@@ -1432,17 +1391,7 @@ server <- function(input, output, session) {
         )
       })
 
-    } else if (input$simulation_choice == "no") {
-      # Afficher un message de fin
-      output$simulation_message <- renderUI({
-        div(
-          style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
-          icon("check-circle"),
-          span(style = "font-weight: bold; margin-left: 5px;", "Processus terminé")
-        )
-      })
     }
-  })
 
   observeEvent(input$enable_coupe, {
     if (input$enable_coupe && !is.null(input$annees_simulation)) {
