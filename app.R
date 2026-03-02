@@ -138,7 +138,13 @@ ui <- dashboardPage(
       $(document).ready(function() {
         $('body').addClass('sidebar-collapse');
       });
-    "))
+    ")),
+      tags$script(HTML("
+      Shiny.addCustomMessageHandler('toggle_tbe', function(msg){
+      $('#enable_tbe').prop('disabled', msg.disable === true);
+      });
+      "))
+
     ),
 
 
@@ -1188,7 +1194,7 @@ server <- function(input, output, session) {
           # Paramètres de recrutement ajustés
           div(
             style = "margin-top: 15px;",
-            h5("Paramètres de recrutement ajustés"),
+            h5("Paramètres de recrutement ajustés",style = "color: #2c3e50; font-weight: bold;"),
             radioButtons("recrutement_ajuste", "",
                          choices = list("Non" = "non", "Oui" = "oui"),
                          selected = "non")
@@ -1197,7 +1203,7 @@ server <- function(input, output, session) {
           # Coupe partielle
           div(
             style = "margin-top: 15px;",
-            h5("Coupe partielle réalisée depuis moins de 10 ans"),
+            h5("Coupe partielle réalisée depuis moins de 10 ans",style = "color: #2c3e50; font-weight: bold;"),
             radioButtons("coupe_partielle", "",
                          choices = list("Non" = "non", "Oui" = "oui"),
                          selected = "non")
@@ -1206,7 +1212,7 @@ server <- function(input, output, session) {
           # Module d'accroissement - avec désactivation des options avancées si pas de données climatiques
           div(
             style = "margin-top: 15px;",
-            h5("Module d'accroissement"),
+            h5("Module d'accroissement",style = "color: #2c3e50; font-weight: bold;"),
             if (no_climate_data) {
               # Si pas de données climatiques, on désactive les options avancées
               tags$div(
@@ -1244,7 +1250,7 @@ server <- function(input, output, session) {
           # Module de mortalité - avec désactivation de l'option QUE si pas de données climatiques
           div(
             style = "margin-top: 15px;",
-            h5("Module de mortalité"),
+            h5("Module de mortalité",style = "color: #2c3e50; font-weight: bold;"),
             if (no_climate_data) {
               # Si pas de données climatiques, on désactive l'option QUE
               tags$div(
@@ -1276,7 +1282,7 @@ server <- function(input, output, session) {
           # Nombre d'années de simulation
           div(
             style = "margin-top: 15px;",
-            h5("Nombre d'années de simulation (multiple de 10)"),
+            h5("Nombre d'années de simulation (multiple de 10)",style = "color: #2c3e50; font-weight: bold;"),
             if (extracted_climate_data && !is.null(rv$extraction_horizon)) {
               # Si données extraites, afficher un champ désactivé avec l'horizon * 10
               div(
@@ -1308,7 +1314,7 @@ server <- function(input, output, session) {
           # Évolution du climat - désactivée si pas de données climatiques
           div(
             style = "margin-top: 15px;",
-            h5("Évolution du climat"),
+            h5("Évolution du climat",style = "color: #2c3e50; font-weight: bold;"),
             if (no_climate_data) {
               # Option désactivée avec message d'information
               tags$div(
@@ -1407,6 +1413,19 @@ server <- function(input, output, session) {
       rv$coupe_modif_vector <- NULL
     }
   })
+
+
+  observeEvent(
+    list(input$module_accroissement, input$module_mortalite),
+    ignoreInit = TRUE,
+    {
+      desactiver_tbe <- (input$module_accroissement != "original" &&
+                              input$module_mortalite     != "original")
+      # enabled si au moins un est "original"
+      session$sendCustomMessage("toggle_tbe", list(disable = desactiver_tbe))
+    }
+  )
+
 
   observeEvent(input$enable_tbe, {
     if (input$enable_tbe && !is.null(input$annees_simulation)) {
