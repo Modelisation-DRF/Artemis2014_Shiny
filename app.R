@@ -644,6 +644,8 @@ server <- function(input, output, session) {
   output$validation_status <- renderUI({
     req(validation_errors())
     errors <- validation_errors()
+    req(valider_champ_optionel())
+    champ_optionel_absent <- valider_champ_optionel()
 
     result_div <- div(style = "margin-top: 15px; margin-bottom: 15px;")
 
@@ -685,6 +687,17 @@ server <- function(input, output, session) {
       }
 
     }
+    # Ajouter la liste des champs optionels absent si c'est le cas
+    if(length(champ_optionel_absent) > 0){
+      result_div <- tagAppendChild(result_div, div(
+        style = "padding-left: 20px; max-height: 200px; overflow-y: auto;",
+        h5("Champ optionel absent:"),
+        tags$ul(
+          class = "error-list",
+          lapply(champ_optionel_absent, tags$li)
+        )
+      ))
+    }
 
     return(result_div)
   })
@@ -695,8 +708,6 @@ server <- function(input, output, session) {
   output$error_box <- renderUI({
     req(validation_errors())
     errors <- validation_errors()
-    req(valider_champ_optionel())
-    champ_optionel_absent <- valider_champ_optionel()
 
     if (length(errors) > 0) {
       div(
@@ -706,17 +717,6 @@ server <- function(input, output, session) {
           lapply(errors, function(error) {
             tags$li(error)
           })
-        )
-      )
-    }
-
-    if(length(champ_optionel_absent) > 0){
-      div(
-        style = "padding-left: 20px; max-height: 200px; overflow-y: auto;",
-        h5("Champ optionel absent:"),
-        tags$ul(
-         class = "error-list",
-          lapply(champ_optionel_absent, tags$li)
         )
       )
     }
@@ -918,6 +918,9 @@ server <- function(input, output, session) {
       simulation_ui()
 
     }
+    #output$validation_status <- renderUI({})
+    #output$file_input_ui <- renderUI({})
+
   })
 
 
@@ -1222,25 +1225,27 @@ server <- function(input, output, session) {
           # Paramètres de recrutement ajustés
           div(
             style = "margin-top: 15px;",
-            h5("Paramètres de recrutement ajustés",style = "color: #2c3e50; font-weight: bold;"),
+            h5("Paramètres de recrutement ajustés",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
             radioButtons("recrutement_ajuste", "",
                          choices = list("Non" = "non", "Oui" = "oui"),
-                         selected = "non")
+                         selected = "non",
+                         inline = TRUE)
           ),
 
           # Coupe partielle
           div(
             style = "margin-top: 15px;",
-            h5("Coupe partielle réalisée depuis moins de 10 ans",style = "color: #2c3e50; font-weight: bold;"),
+            h5("Coupe partielle réalisée depuis moins de 10 ans",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
             radioButtons("coupe_partielle", "",
                          choices = list("Non" = "non", "Oui" = "oui"),
-                         selected = "non")
+                         selected = "non",
+                         inline = TRUE)
           ),
 
           # Module d'accroissement - avec désactivation des options avancées si pas de données climatiques
           div(
             style = "margin-top: 15px;",
-            h5("Module d'accroissement",style = "color: #2c3e50; font-weight: bold;"),
+            h5("Module d'accroissement",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
             if (no_climate_data) {
               # Si pas de données climatiques, on désactive les options avancées
               tags$div(
@@ -1257,11 +1262,11 @@ server <- function(input, output, session) {
                   $('input[name=\"module_accroissement\"][value=\"gam\"]').prop('disabled', true);
                   $('input[name=\"module_accroissement\"][value=\"fortin\"]').prop('disabled', true);
                 });
-              "))),
-                tags$div(
-                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
-                  "Les modules Wang 2023, D'Orangeville 2018 et Fortin 2026 sont désactivées car vous avez choisi de ne pas utiliser de données climatiques"
-                )
+              ")))#,
+                #tags$div(
+                  #style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
+                  #"Les modules Wang 2023, D'Orangeville 2018 et Fortin 2026 sont désactivées car vous avez choisi de ne pas utiliser de données climatiques"
+                #)
               )
             } else {
               # Options normales si données climatiques disponibles
@@ -1271,14 +1276,15 @@ server <- function(input, output, session) {
                              "Wang 2023" = "brt",
                              "D'Orangeville 2018" = "gam",
                              "Fortin 2026" = "fortin"),
-                           selected = "original")
+                           selected = "original"
+                           )
             }
           ),
 
           # Module de mortalité - avec désactivation de l'option QUE si pas de données climatiques
           div(
             style = "margin-top: 15px;",
-            h5("Module de mortalité",style = "color: #2c3e50; font-weight: bold;"),
+            h5("Module de mortalité",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
             if (no_climate_data) {
               # Si pas de données climatiques, on désactive l'option QUE
               tags$div(
@@ -1286,15 +1292,16 @@ server <- function(input, output, session) {
                              choices = list(
                                "Original" = "original",
                                "Power 2025" = "que"),
-                             selected = "original"),
+                             selected = "original",
+                             inline = TRUE),
                 tags$script(HTML("
                 $(document).ready(function() {
                   $('input[name=\"module_mortalite\"][value=\"que\"]').prop('disabled', true);
                 });
               ")),
                 tags$div(
-                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
-                  "Le module Power 2025 est désactivée car vous avez choisi de ne pas utiliser de données climatiques"
+                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: -10px;",
+                  "Options des module d'accroissement et de mortalité désactivés car vous avez choisi de ne pas utiliser de données climatiques"
                 )
               )
             } else {
@@ -1310,7 +1317,7 @@ server <- function(input, output, session) {
           # Nombre d'années de simulation
           div(
             style = "margin-top: 15px;",
-            h5("Nombre d'années de simulation (multiple de 10)",style = "color: #2c3e50; font-weight: bold;"),
+            h5("Nombre d'années de simulation (multiple de 10)",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
             if (extracted_climate_data && !is.null(rv$extraction_horizon)) {
               # Si données extraites, afficher un champ désactivé avec l'horizon * 10
               div(
@@ -1342,20 +1349,21 @@ server <- function(input, output, session) {
           # Évolution du climat - désactivée si pas de données climatiques
           div(
             style = "margin-top: 15px;",
-            h5("Évolution du climat",style = "color: #2c3e50; font-weight: bold;"),
+            h5("Évolution du climat",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
             if (no_climate_data) {
               # Option désactivée avec message d'information
               tags$div(
                 radioButtons("evolution_climat", "",
                              choices = list("Oui" = "yes", "Non" = "no"),
-                             selected = "no"),
+                             selected = "no",
+                             inline = TRUE),
                 tags$script(HTML("
                 $(document).ready(function() {
                   $('input[name=\"evolution_climat\"]').prop('disabled', true);
                 });
               ")),
                 tags$div(
-                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
+                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: -10px;",
                   "Option désactivée car vous avez choisi de ne pas utiliser de données climatiques"
                 )
               )
