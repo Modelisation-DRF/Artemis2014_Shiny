@@ -612,6 +612,18 @@ server <- function(input, output, session) {
     return(all_errors)
   })
 
+  # fonction réactive pour valider les champs optionels
+  valider_champ_optionel <- reactive({
+    req(data())
+
+    # Appliquer les fonctions
+   champ_optionel_absent <- trouver_variable_meteo_absent(data())
+
+
+
+    return(champ_optionel_absent)
+  })
+
 
   # Afficher le tableau de données
   output$contents <- renderDT({
@@ -671,6 +683,7 @@ server <- function(input, output, session) {
                                      )
         )
       }
+
     }
 
     return(result_div)
@@ -682,6 +695,8 @@ server <- function(input, output, session) {
   output$error_box <- renderUI({
     req(validation_errors())
     errors <- validation_errors()
+    req(valider_champ_optionel())
+    champ_optionel_absent <- valider_champ_optionel()
 
     if (length(errors) > 0) {
       div(
@@ -694,7 +709,20 @@ server <- function(input, output, session) {
         )
       )
     }
+
+    if(length(champ_optionel_absent) > 0){
+      div(
+        style = "padding-left: 20px; max-height: 200px; overflow-y: auto;",
+        h5("Champ optionel absent:"),
+        tags$ul(
+         class = "error-list",
+          lapply(champ_optionel_absent, tags$li)
+        )
+      )
+    }
+
   })
+
 
 
   # Modifier la question d'extraction pour inclure les trois options
