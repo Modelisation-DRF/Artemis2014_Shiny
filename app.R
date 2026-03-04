@@ -69,6 +69,14 @@ ui <- dashboardPage(
       .content-wrapper {background-color: #f8f9fa;}
       .nav-tabs-custom {box-shadow: none;}
 
+      details > summary {
+        list-style: revert;
+        display: list-item;
+        cursor: pointer;
+        font-weight: 600;
+        color: #2c3e50;
+      }
+
      .reset-button {
   position: absolute;
   top: 10px;
@@ -143,7 +151,7 @@ ui <- dashboardPage(
       Shiny.addCustomMessageHandler('toggle_tbe', function(msg){
       $('#enable_tbe').prop('disabled', msg.disable === true);
       });
-      "))
+      ")),
 
     ),
 
@@ -154,13 +162,17 @@ ui <- dashboardPage(
 
       tabItem(
         tabName = "data",
-        fluidRow(
-
+        fluidRow( #style = "margin-left: -6px; margin-right: -6px;",  # réduit l'espace global entre
+          column(
+          width = 4,
+          style = "padding-left: 2px; padding-right: 0px;",
           box(
-            width = 4,
+            id = "import_box",
+            width = 12,
             title = "Importation de données",
             status = "primary",
             solidHeader = TRUE,
+            collapsible = TRUE,
 
 
             uiOutput("file_input_ui"),
@@ -178,16 +190,29 @@ ui <- dashboardPage(
 
             uiOutput("extraction_button_final"),
 
+
+          ),
+          box(
+            width = 12,
+            title = "Configuration de la simulation",
+            status = "primary",
+            solidHeader = TRUE,
+            collapsible = TRUE,
             uiOutput("simulation_message")
+          )
           ),
 
-          box(
+          column(
             width = 8,
+            style = "padding-left: 0px; padding-right: 2px;",
+          box(
+            width = 12,
             title = "Données importées",
             status = "primary",
             solidHeader = TRUE,
-            DTOutput("contents")
+            DTOutput("contents"))
           )
+
         ),
         div(style = "position: relative; height: 40px;",
             actionButton("reset_button", "Réinitialiser", class = "reset-button", icon = icon("sync"))
@@ -810,10 +835,10 @@ server <- function(input, output, session) {
 
     if (input$extraction_choice == "extract") {
       # Afficher les paramètres de configuration d'extraction
-      output$extraction_button <- renderUI({
+      output$simulation_message <- renderUI({
         div(
           style = "margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6;",
-          h4("Configuration de la simulation", style = "margin-top: 0;"),
+          #h4("Configuration de la simulation", style = "margin-top: 0;"),
 
           # Année de départ
           numericInput(
@@ -847,7 +872,7 @@ server <- function(input, output, session) {
       })
 
       # Effacer le message de simulation
-      output$simulation_message <- renderUI({})
+      #output$simulation_message <- renderUI({})
 
     } else if (input$extraction_choice == "upload") {
       # Afficher les options pour téléverser ses propres fichiers climatiques
@@ -918,6 +943,8 @@ server <- function(input, output, session) {
       simulation_ui()
 
     }
+    print('test')
+
     #output$validation_status <- renderUI({})
     #output$file_input_ui <- renderUI({})
 
@@ -1219,13 +1246,13 @@ server <- function(input, output, session) {
 
 
         div(
-          style = "margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6;",
-          h4("Configuration de la simulation", style = "margin-top: 0;"),
+          style = " padding: 15px;",
+          #h4("Configuration de la simulation", style = "margin-top: 0;"),
 
           # Paramètres de recrutement ajustés
           div(
             style = "margin-top: 15px;",
-            h5("Paramètres de recrutement ajustés",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
+            h5("Paramètres de recrutement ajustés",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px;margin-top: -10px"),
             radioButtons("recrutement_ajuste", "",
                          choices = list("Non" = "non", "Oui" = "oui"),
                          selected = "non",
@@ -1301,7 +1328,7 @@ server <- function(input, output, session) {
               ")),
                 tags$div(
                   style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: -10px;",
-                  "Options des module d'accroissement et de mortalité désactivés car vous avez choisi de ne pas utiliser de données climatiques"
+                  "Options des modules d'accroissement et de mortalité désactivés car vous avez choisi de ne pas utiliser de données climatiques"
                 )
               )
             } else {
@@ -1382,13 +1409,17 @@ server <- function(input, output, session) {
 
             conditionalPanel(
               condition = "input.enable_coupe == true",
-              div(
-                style = "margin-top: 10px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
-                p("Configurez les traitements de coupe par décennie:",
-                  style = "font-size: 0.9em; margin-bottom: 10px;"),
-
-                # Interface dynamique pour chaque décennie
-                uiOutput("coupe_config_ui")
+              tags$details(
+                open = NA, # enlève pour démarrer fermé; mets = "open" pour démarrer ouvert
+                style = "margin-top: -10px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
+                tags$summary(
+                  "Configurez les traitements de coupe par décennie",
+                  style = "cursor: pointer; font-weight: 600; color: #2c3e50;"
+                ),
+                div(
+                  style = "margin-top: 10px;",
+                  uiOutput("coupe_config_ui")
+                )
               )
             )
           ),
@@ -1399,21 +1430,26 @@ server <- function(input, output, session) {
             checkboxInput("enable_tbe", "Activer défoliation TBE", value = FALSE),
 
             tags$div(
-              style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
+              style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: -20px;",
               "La défoliation TBE s'active uniquement avec les modules d'accroissement et de moratlité 'Original'"
             ),
 
             conditionalPanel(
               condition = "input.enable_tbe == true",
-              div(
+              tags$details(
+                open = NA,
                 style = "margin-top: 10px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
-                p("Sélectionnez les décennies avec défoliation sévère par la TBE:",
-                  style = "font-size: 0.9em; margin-bottom: 10px;"),
-
-                # Interface pour sélectionner les années avec TBE
-                uiOutput("tbe_config_ui")
+                tags$summary(
+                  "Sélectionnez les décennies avec défoliation sévère par la TBE:",
+                  style = "cursor: pointer; font-weight: 600; color: #2c3e50;"
+                ),
+                div(
+                  style = "margin-top: 10px;",
+                  uiOutput("tbe_config_ui")
+                )
               )
             )
+
           ),
 
 
@@ -1489,7 +1525,7 @@ server <- function(input, output, session) {
                     selected = NULL)
       ),
       div(
-        style = "margin-bottom: 15px;",
+        style = "margin-bottom: 15px;margin-top:-10px",
         selectInput("type_coupe", "Type de coupe:",
                     choices = c("Aucune coupe" = "NA",
                                  setNames(c(0:1,6:9,12:19), c("Coupe d'amélioration","Coupe d'éclaircie","Coupe de jardinage","Coupe progressive",
@@ -1503,8 +1539,8 @@ server <- function(input, output, session) {
 
       # Section pour le type de modificateur
       div(
-        style = "margin-bottom: 15px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
-        h6("Type de modificateur:", style = "margin-bottom: 10px;"),
+        style = "margin-bottom: 10px;margin-top:-10px",
+        h5("Type de modificateur:", style = "margin-bottom: -10px;margin-top:-10px;font-weight: bold;"),
         radioButtons("type_modif", "",
                      choices = list(
                        "Modificateur simple (même valeur pour toutes les essences)" = "simple",
@@ -1515,17 +1551,19 @@ server <- function(input, output, session) {
         # Interface conditionnelle selon le choix
         conditionalPanel(
           condition = "input.type_modif == 'simple'",
+          div(style = "margin-top:-10px",
           numericInput("modif_coupe", "Modificateur (%):",
-                       value = 0, min = -80, max = 160, step = 5)
+                       value = 0, min = -80, max = 160, step = 5))
         ),
 
         conditionalPanel(
           condition = "input.type_modif == 'excel'",
           div(
+            style = "margin-bottom: -20px;margin-top:-10px",
             fileInput("modif_excel_file", "Fichier des modificateurs:",
                       accept = c(".xlsx", ".xls", ".csv")),
             div(
-              style = "font-size: 0.85em; color: #6c757d; font-style: italic;",
+              style = "font-size: 0.85em; color: #6c757d; font-style: italic;margin-top:-40px; margin-bottom:30px",
               "Le fichier doit contenir les colonnes 'ess_ind' et 'modifier'
               (Excel ou CSV) modifier doit se situer entre -80 et 160%"
             )
@@ -1568,7 +1606,7 @@ server <- function(input, output, session) {
                     selected = NULL)
       ),
       div(
-        style = "margin-bottom: 15px;",
+        style = "margin-bottom: 15px; margin-top:-10px",
         selectInput("effet_tbe", "Défoliation TBE:",
                     choices = list("Absent" = 0, "Présent" = 1),
                     selected = 0)
