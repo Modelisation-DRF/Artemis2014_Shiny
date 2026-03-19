@@ -784,7 +784,30 @@ server <- function(input, output, session) {
                 "La colonne Age_moy est manquante ou contient des erreurs. Vous ne pouvez pas utiliser les données climatiques dans votre simulation."
               )
             )
-          } else {
+          }
+          else if (length(rv$placette) > 100){
+            tagList(
+              radioButtons("extraction_choice", "",
+                           choices = list(
+                             "Simuler les données climatiques" = "extract",
+                             "Fournir les données climatiques" = "upload",
+                             "Simulation sans données climatiques" = "none"
+                           ),
+                           selected = "none"),
+              tags$script(HTML("
+              $(document).ready(function() {
+                $('input[name=\"extraction_choice\"][value=\"extract\"]').prop('disabled', true);
+              });
+            ")),
+              tags$div(
+                style = "color: #d9534f; font-style: italic; font-size: 0.9em; margin-top: 5px; margin-bottom: 10px;",
+                icon("exclamation-triangle"),
+                "Nombre de placettes trop grand pour simuler les données climatiques. Ne doit pas dépasser 100."
+              )
+            )
+          }
+
+          else {
             radioButtons("extraction_choice", "",
                          choices = list(
                            "Simuler les données climatiques" = "extract",
@@ -834,6 +857,7 @@ server <- function(input, output, session) {
     output$extraction_question <- renderUI({})
 
     if (input$extraction_choice == "extract") {
+
       # Afficher les paramètres de configuration d'extraction
       output$simulation_message <- renderUI({
         div(
@@ -1358,7 +1382,7 @@ server <- function(input, output, session) {
                 });
               ")),
                 tags$div(
-                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
+                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: -15px;",
                   "Ce champ est automatiquement défini selon l'horizon de simulation climatique"
                 )
               )
