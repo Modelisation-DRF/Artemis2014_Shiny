@@ -864,14 +864,15 @@ server <- function(input, output, session) {
           style = "margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6;",
           #h4("Configuration de la simulation", style = "margin-top: 0;"),
 
-          # Année de départ
+          # Année de départ - Paramètre non paramétrable
+          div(style = "display: none;",
           numericInput(
             "annee_depart",
             "Année de départ :",
-            value = 2025,
+            value = as.numeric(format(Sys.Date(), "%Y")),
             min = 2000,
             step = 1
-          ),
+          )),
 
           # Horizon
           numericInput(
@@ -967,7 +968,7 @@ server <- function(input, output, session) {
       simulation_ui()
 
     }
-    print('test')
+
 
     #output$validation_status <- renderUI({})
     #output$file_input_ui <- renderUI({})
@@ -1007,9 +1008,14 @@ server <- function(input, output, session) {
       # Vérifier les fichiers avec les fonctions du package Artemis
       erreurs_annuel <- verifier_colonnes_ClimAn(climat_annuel)
       erreurs_mensuel <- verifier_colonnes_Clim(climat_mensuel)
+      erreurs_nb_mensuel <- valider_Mois(climat_mensuel)
+
+      # Valider que le fichier annuel et mensuel sont cohérents
+      erreurs_comparaison <- comparer_annee_scenario(data(), climat_annuel,climat_mensuel,input$rcp)
+
 
       # Vérifier s'il y a des erreurs
-      if (length(erreurs_annuel) > 0 || length(erreurs_mensuel) > 0) {
+      if (length(erreurs_annuel) > 0 || length(erreurs_mensuel) > 0 || length(erreurs_nb_mensuel) > 0 || length(erreurs_comparaison) > 0 ) {
         showModal(modalDialog(
           title = "Erreurs dans les fichiers climatiques",
           div(
@@ -1037,6 +1043,30 @@ server <- function(input, output, session) {
                    style = "border-bottom: 1px solid #856404; padding-bottom: 5px;"),
                 tags$ul(
                   lapply(erreurs_mensuel, function(error) {
+                    tags$li(error)
+                  })
+                )
+              )
+            },
+            if (length(erreurs_nb_mensuel) > 0){
+              div(
+                style = "background-color: #fff3cd; color: #856404; padding: 15px; border: 1px solid #ffeeba; border-radius: 5px;",
+                h4(paste0("Incohérence dans le fichier climat mensuel (", input$climat_mensuel_file$name, "):"),
+                   style = "border-bottom: 1px solid #856404; padding-bottom: 5px;"),
+                tags$ul(
+                  lapply(erreurs_nb_mensuel, function(error) {
+                    tags$li(error)
+                  })
+                )
+              )
+            },
+            if (length(erreurs_comparaison) > 0 ){
+              div(
+                style = "background-color: #fff3cd; color: #856404; padding: 15px; border: 1px solid #ffeeba; border-radius: 5px;",
+                h4(paste0("Incohérence dans les fichiers climatiques: ", input$climat_annuel_file$name, " et ", input$climat_mensuel_file$name),
+                   style = "border-bottom: 1px solid #856404; padding-bottom: 5px;"),
+                tags$ul(
+                  lapply(erreurs_comparaison, function(error) {
                     tags$li(error)
                   })
                 )
@@ -1300,20 +1330,27 @@ server <- function(input, output, session) {
             if (no_climate_data) {
               # Si pas de données climatiques, on désactive les options avancées
               tags$div(
-                radioButtons("module_accroissement", "",
-                             choices = list(
-                               "Original" = "original",
-                               "Wang 2023" = "brt",
-                               "D'Orangeville 2018" = "gam",
-                               "Fortin 2026" = "fortin"),
-                             selected = "original"),
-                tags$script(HTML(paste0("
+                selectInput(
+                inputId = "module_accroissement",
+                label = "",
+                choices = list(
+                  "Original" = "original",
+                  "Wang 2023" = "brt",
+                  "D'Orangeville 2018" = "gam",
+                  "Fortin 2026" = "fortin"
+                ),
+                selected = "original",
+                selectize = FALSE
+              ),
+
+                tags$script(HTML("
                 $(document).ready(function() {
-                  $('input[name=\"module_accroissement\"][value=\"brt\"]').prop('disabled', true);
-                  $('input[name=\"module_accroissement\"][value=\"gam\"]').prop('disabled', true);
-                  $('input[name=\"module_accroissement\"][value=\"fortin\"]').prop('disabled', true);
+                $('#module_accroissement option[value=\"brt\"]').prop('disabled', true);
+                $('#module_accroissement option[value=\"gam\"]').prop('disabled', true);
+                $('#module_accroissement option[value=\"fortin\"]').prop('disabled', true);
+
                 });
-              ")))#,
+              "))#,
                 #tags$div(
                   #style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
                   #"Les modules Wang 2023, D'Orangeville 2018 et Fortin 2026 sont désactivées car vous avez choisi de ne pas utiliser de données climatiques"
@@ -1321,14 +1358,18 @@ server <- function(input, output, session) {
               )
             } else {
               # Options normales si données climatiques disponibles
-              radioButtons("module_accroissement", "",
-                           choices = list(
-                             "Original" = "original",
-                             "Wang 2023" = "brt",
-                             "D'Orangeville 2018" = "gam",
-                             "Fortin 2026" = "fortin"),
-                           selected = "original"
-                           )
+              selectInput(
+                inputId = "module_accroissement",
+                label = "",
+                choices = list(
+                  "Original" = "original",
+                  "Wang 2023" = "brt",
+                  "D'Orangeville 2018" = "gam",
+                  "Fortin 2026" = "fortin"
+                ),
+                selected = "original"
+              )
+
             }
           ),
 
@@ -1339,15 +1380,20 @@ server <- function(input, output, session) {
             if (no_climate_data) {
               # Si pas de données climatiques, on désactive l'option QUE
               tags$div(
-                radioButtons("module_mortalite", "",
-                             choices = list(
-                               "Original" = "original",
-                               "Power 2025" = "que"),
-                             selected = "original",
-                             inline = TRUE),
+                selectInput(
+                  inputId = "module_mortalite",
+                  label = "",
+                  choices = list(
+                            "Original" = "original",
+                            "Power 2025" = "que",
+                            "Power 2026" = "CANEU"),
+                        selected = "original",
+                        selectize = FALSE
+                             ),
                 tags$script(HTML("
-                $(document).ready(function() {
-                  $('input[name=\"module_mortalite\"][value=\"que\"]').prop('disabled', true);
+                 $(document).ready(function() {
+                  $('#module_mortalite option[value=\"que\"]').prop('disabled', true);
+                  $('#module_mortalite option[value=\"CANEU\"]').prop('disabled', true);
                 });
               ")),
                 tags$div(
@@ -1357,11 +1403,14 @@ server <- function(input, output, session) {
               )
             } else {
               # Options normales si données climatiques disponibles
-              radioButtons("module_mortalite", "",
-                           choices = list(
-                             "Original" = "original",
-                             "Power 2025" = "que"),
-                           selected = "original")
+              selectInput(
+                inputId = "module_mortalite",
+                label = "",
+                choices = list(
+                  "Original" = "original",
+                  "Power 2025" = "que",
+                  "Power 2026" = "CANEU"),
+                selected = "original")
             }
           ),
 
@@ -1422,7 +1471,8 @@ server <- function(input, output, session) {
               # Options normales
               radioButtons("evolution_climat", "",
                            choices = list("Oui" = "yes", "Non" = "no"),
-                           selected = "yes")
+                           selected = "yes",
+                           inline = TRUE)
             }
           ),
 
@@ -2051,6 +2101,11 @@ server <- function(input, output, session) {
               tags$li(paste0("Module d'accroissement : ", module_acc_utilise)),
               tags$li(paste0("Module de mortalité : ", module_mort_utilise)),
               tags$li(paste0("Nombre d'années : ", input$annees_simulation)),
+              tags$li(paste0("Défoliation TBE : ",ifelse(input$enable_tbe, "Oui", "Non") )),
+              tags$li(paste0("Traitement de coupe : ",ifelse(input$enable_coupe, "Oui", "Non") )),
+              if (input$enable_coupe) {
+                verbatimTextOutput("display_coupes")
+              },
               if (no_climate_data) {
                 tags$li(paste0("Évolution du climat : Non (Données climatiques non utilisées)"))
               } else {
@@ -2564,7 +2619,12 @@ server <- function(input, output, session) {
             tags$li(paste0("Évolution climat: ", ifelse(input$evolution_climat == "yes", "Oui", "Non")))
           )
         },
-        tags$li(paste0("Années de simulation: ", input$annees_simulation))
+        tags$li(paste0("Années de simulation: ", input$annees_simulation),
+        tags$li(paste0("Défoliation TBE : ",ifelse(input$enable_tbe, "Oui", "Non") )),
+        tags$li(paste0("Traitement de coupe : ",ifelse(input$enable_coupe, "Oui", "Non") )),
+        if (input$enable_coupe) {
+          verbatimTextOutput("display_coupes")
+        })
       )
 
     )
