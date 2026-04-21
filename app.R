@@ -1007,15 +1007,18 @@ server <- function(input, output, session) {
 
       # Vérifier les fichiers avec les fonctions du package Artemis
       erreurs_annuel <- verifier_colonnes_ClimAn(climat_annuel)
+      erreurs_annuel <- c(erreurs_annuel, validation_annuel(data(), climat_annuel,input$rcp))
       erreurs_mensuel <- verifier_colonnes_Clim(climat_mensuel)
-      erreurs_nb_mensuel <- valider_Mois(climat_mensuel)
+      erreurs_mensuel <- c(erreurs_mensuel, validation_mensuel(data(), climat_mensuel,input$rcp))
+      erreurs_mensuel <- c(erreurs_mensuel, valider_Mois(climat_mensuel,input$rcp) )
+
 
       # Valider que le fichier annuel et mensuel sont cohérents
       erreurs_comparaison <- comparer_annee_scenario(data(), climat_annuel,climat_mensuel,input$rcp)
-
+      #erreurs_comparaison <- NULL
 
       # Vérifier s'il y a des erreurs
-      if (length(erreurs_annuel) > 0 || length(erreurs_mensuel) > 0 || length(erreurs_nb_mensuel) > 0 || length(erreurs_comparaison) > 0 ) {
+      if (length(erreurs_annuel) > 0 || length(erreurs_mensuel) > 0 || length(erreurs_comparaison) > 0 ) {
         showModal(modalDialog(
           title = "Erreurs dans les fichiers climatiques",
           div(
@@ -1038,23 +1041,11 @@ server <- function(input, output, session) {
             # Section pour les erreurs du fichier climat mensuel
             if (length(erreurs_mensuel) > 0) {
               div(
-                style = "background-color: #fff3cd; color: #856404; padding: 15px; border: 1px solid #ffeeba; border-radius: 5px;",
+                style = "background-color: #f8d7da; color: #721c24; padding: 15px; border: 1px solid #f5c6cb; border-radius: 5px; margin-bottom: 15px;",
                 h4(paste0("Erreurs dans le fichier climat mensuel (", input$climat_mensuel_file$name, "):"),
-                   style = "border-bottom: 1px solid #856404; padding-bottom: 5px;"),
+                   style = "border-bottom: 1px solid #721c24; padding-bottom: 5px;"),
                 tags$ul(
                   lapply(erreurs_mensuel, function(error) {
-                    tags$li(error)
-                  })
-                )
-              )
-            },
-            if (length(erreurs_nb_mensuel) > 0){
-              div(
-                style = "background-color: #fff3cd; color: #856404; padding: 15px; border: 1px solid #ffeeba; border-radius: 5px;",
-                h4(paste0("Incohérence dans le fichier climat mensuel (", input$climat_mensuel_file$name, "):"),
-                   style = "border-bottom: 1px solid #856404; padding-bottom: 5px;"),
-                tags$ul(
-                  lapply(erreurs_nb_mensuel, function(error) {
                     tags$li(error)
                   })
                 )
