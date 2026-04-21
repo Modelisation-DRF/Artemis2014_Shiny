@@ -2,32 +2,67 @@
 #source("dev_functions.R") -> tester fonctions d'autres packages dans le fichier correspondant ici, run la ligne
 #et le code du fichier, mettre en commentaire pour retourner sur les fonctions des packages
 
-if (!require("BioSIM", character.only = TRUE)) {
-  if (!require("remotes", character.only = TRUE)) {
+if (!require("remotes", character.only = TRUE)) {
     install.packages("remotes")
     library(remotes)
-  }
-  remotes::install_github("RNCan/BioSimClient_R")
-  library("BioSIM", character.only = TRUE)
 }
 
 
+packages <- c("shiny","shinydashboard","shinyWidgets","DT","dplyr", "ggplot2", "plotly","data.table","readxl","sf")
 
-library(shiny)
-library(DT)
-library(Artemis2014)
-library(shinydashboard)
-library(shinyWidgets)
-library(ggplot2)
-library(dplyr)
-library(BioSIM)
-library(ExtractMap)
-library(plotly)
-library(BillonnagePetro)
-library(sf)
-library(OutilsDRF)
-library(data.table)
-library(readxl)
+for (pkg in packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg)
+  }
+  library(pkg, character.only = TRUE)
+}
+
+if (!require("BioSIM", character.only = TRUE)) {
+
+  remotes::install_github("RNCan/BioSimClient_R")
+  library(BioSIM)
+}
+
+if (!require("Artemis2014", character.only = TRUE)) {
+
+  remotes::install_github("Modelisation-DRF/Artemis2014")
+  library(Artemis2014)
+}
+
+if (!require("ExtractMap", character.only = TRUE)) {
+
+  remotes::install_github("Modelisation-DRF/ExtractMap")
+  library(ExtractMap)
+}
+
+if (!require("BillonnagePetro", character.only = TRUE)) {
+
+  remotes::install_github("Modelisation-DRF/BillonnagePetro")
+  library(BillonnagePetro)
+}
+
+if (!require("OutilsDRF", character.only = TRUE)) {
+
+  remotes::install_github("Modelisation-DRF/OutilsDRF")
+  library(OutilsDRF)
+}
+
+
+#library(shiny)
+#library(DT)
+#library(Artemis2014)
+#library(shinydashboard)
+#library(shinyWidgets)
+#library(ggplot2)
+#library(dplyr)
+#library(BioSIM)
+#library(ExtractMap)
+#library(plotly)
+#library(BillonnagePetro)
+#library(sf)
+#library(OutilsDRF)
+#library(data.table)
+#library(readxl)
 
 
 options(shiny.maxRequestSize = 500 * 1024^2)
