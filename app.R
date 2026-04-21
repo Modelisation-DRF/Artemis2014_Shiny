@@ -149,7 +149,7 @@ ui <- dashboardPage(
     ")),
       tags$script(HTML("
       Shiny.addCustomMessageHandler('toggle_tbe', function(msg){
-      $('#enable_tbe').prop('disabled', msg.disable === true);
+      $('#enable_tbe').prop('disabled', msg.disable === true).prop('checked',false).trigger('change') ;
       });
       ")),
 
@@ -597,6 +597,7 @@ server <- function(input, output, session) {
     rv$extraction_completed <- FALSE
     rv$climat_annuel <- NULL
     rv$climat_mensuel <- NULL
+    rv$max_annees_simulation <- NA
     rv$simulation_terminee <- FALSE
 
     # Vider les sorties précédentes
@@ -961,6 +962,7 @@ server <- function(input, output, session) {
       # Définir les variables climatiques comme NULL pour indiquer qu'elles ne sont pas utilisées
       rv$climat_annuel <- NULL
       rv$climat_mensuel <- NULL
+      rv$max_annees_simulation <- NA
 
       # Mettre à jour l'état indiquant que le processus est terminé
       rv$extraction_completed <- TRUE
@@ -1080,6 +1082,7 @@ server <- function(input, output, session) {
         # Si aucune erreur, stocker les données dans les variables réactives
         rv$climat_annuel <- climat_annuel
         rv$climat_mensuel <- climat_mensuel
+        rv$max_annees_simulation <- floor(extraire_nb_annee(climat_annuel)/10)*10
 
         # Afficher une notification de succès
         showNotification(
@@ -1431,6 +1434,7 @@ server <- function(input, output, session) {
               numericInput("annees_simulation", "",
                            value = 10,
                            min = 10,
+                           max = if (!no_climate_data) rv$max_annees_simulation else NA,
                            step = 10)
             }
           )
@@ -1556,8 +1560,8 @@ server <- function(input, output, session) {
     list(input$module_accroissement, input$module_mortalite),
     ignoreInit = TRUE,
     {
-      desactiver_tbe <- (input$module_accroissement != "original" &&
-                              input$module_mortalite     != "original")
+      desactiver_tbe <- !(input$module_accroissement == "original" &&
+                              input$module_mortalite     == "original")
       # enabled si au moins un est "original"
       session$sendCustomMessage("toggle_tbe", list(disable = desactiver_tbe))
     }
