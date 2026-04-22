@@ -4,9 +4,10 @@
 
 if (!require("remotes", character.only = TRUE)) {
     install.packages("remotes")
-    library(remotes)
-}
 
+  }
+
+  library(remotes)
 
 packages <- c("shiny","shinydashboard","shinyWidgets","DT","dplyr", "ggplot2", "plotly","data.table","readxl","sf")
 
@@ -1117,7 +1118,7 @@ server <- function(input, output, session) {
         # Si aucune erreur, stocker les données dans les variables réactives
         rv$climat_annuel <- climat_annuel
         rv$climat_mensuel <- climat_mensuel
-        rv$max_annees_simulation <- floor(extraire_nb_annee(climat_annuel)/10)*10
+        rv$max_annees_simulation <- floor(extraire_nb_annee(climat_annuel,AnneeDep=as.numeric(format(Sys.Date(), "%Y")))/10)*10
 
         # Afficher une notification de succès
         showNotification(
@@ -1293,7 +1294,7 @@ server <- function(input, output, session) {
           block = TRUE
         ),
         p(style = "margin-top: 8px; font-size: 0.85em; color: #666; text-align: center;",
-          paste0("Période: ", input$annee_depart, " - ", input$annee_depart + input$horizon - 1,
+          paste0("Période: ", input$annee_depart, " - ", input$annee_depart + input$horizon,
                  " | Scénario: ", ifelse(input$rcp == "RCP45", "RCP 4.5", "RCP 8.5"))
         )
       )
@@ -1415,7 +1416,7 @@ server <- function(input, output, session) {
                   choices = list(
                             "Original" = "original",
                             "Power 2025" = "que",
-                            "Power 2026" = "CANEU"),
+                            "Power 2026" = "caneu"),
                         selected = "original",
                         selectize = FALSE
                              ),
@@ -1438,7 +1439,7 @@ server <- function(input, output, session) {
                 choices = list(
                   "Original" = "original",
                   "Power 2025" = "que",
-                  "Power 2026" = "CANEU"),
+                  "Power 2026" = "caneu"),
                 selected = "original")
             }
           ),
@@ -1953,6 +1954,19 @@ server <- function(input, output, session) {
       return()
     }
 
+    # Vérifier que le nombre d'années est inférieur ou égal au nombre d'années du fichier climatique
+  if (input$extraction_choice=="upload"){
+
+    if (input$annees_simulation > rv$max_annees_simulation) {
+      showNotification(
+        "Le nombre d'années de simulation dépasse l'horizon des données climatiques",
+        type = "error",
+        duration = 5
+      )
+      return()
+    }
+  }
+
     # Si données climatiques sont requises mais pas disponibles (pas pour option "none")
     if (!is.null(rv$extraction_option) && rv$extraction_option != "none" &&
         (is.null(rv$climat_annuel) || is.null(rv$climat_mensuel))) {
@@ -2042,7 +2056,8 @@ server <- function(input, output, session) {
                          "fortin"="QUE")
       MortModif <- switch(input$module_mortalite,
                           "original" = "ORI",
-                          "que" = "QUE")
+                          "que" = "QUE",
+                          "caneu" = "CANEU")
     }
 
     # Déterminer le RCP à utiliser
@@ -2112,7 +2127,8 @@ server <- function(input, output, session) {
 
       module_mort_utilise <- if (no_climate_data) "Original (ORI)" else switch(input$module_mortalite,
                                                                                "original" = "Original (ORI)",
-                                                                               "que" = "Power 2025")
+                                                                               "que" = "Power 2025",
+                                                                               "caneu" = "Power 2026")
 
       # Afficher un résultat de simulation
       showModal(modalDialog(
