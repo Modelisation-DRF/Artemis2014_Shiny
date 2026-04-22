@@ -2,32 +2,69 @@
 #source("dev_functions.R") -> tester fonctions d'autres packages dans le fichier correspondant ici, run la ligne
 #et le code du fichier, mettre en commentaire pour retourner sur les fonctions des packages
 
-if (!require("BioSIM", character.only = TRUE)) {
-  if (!require("remotes", character.only = TRUE)) {
+if (!require("remotes", character.only = TRUE)) {
     install.packages("remotes")
-    library(remotes)
+
   }
+
+  library(remotes)
+
+packages <- c("shiny","shinydashboard","shinyWidgets","DT","dplyr", "ggplot2", "plotly","data.table","readxl","sf")
+
+for (pkg in packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg)
+  }
+  library(pkg, character.only = TRUE)
+}
+
+if (!require("BioSIM", character.only = TRUE)) {
+
   remotes::install_github("RNCan/BioSimClient_R")
-  library("BioSIM", character.only = TRUE)
+  library(BioSIM)
+}
+
+if (!require("Artemis2014", character.only = TRUE)) {
+
+  remotes::install_github("Modelisation-DRF/Artemis2014")
+  library(Artemis2014)
+}
+
+if (!require("ExtractMap", character.only = TRUE)) {
+
+  remotes::install_github("Modelisation-DRF/ExtractMap")
+  library(ExtractMap)
+}
+
+if (!require("BillonnagePetro", character.only = TRUE)) {
+
+  remotes::install_github("Modelisation-DRF/BillonnagePetro")
+  library(BillonnagePetro)
+}
+
+if (!require("OutilsDRF", character.only = TRUE)) {
+
+  remotes::install_github("Modelisation-DRF/OutilsDRF")
+  library(OutilsDRF)
 }
 
 
+#library(shiny)
+#library(DT)
+#library(Artemis2014)
+#library(shinydashboard)
+#library(shinyWidgets)
+#library(ggplot2)
+#library(dplyr)
+#library(BioSIM)
+#library(ExtractMap)
+#library(plotly)
+#library(BillonnagePetro)
+#library(sf)
+#library(OutilsDRF)
+#library(data.table)
+#library(readxl)
 
-library(shiny)
-library(DT)
-library(Artemis2014)
-library(shinydashboard)
-library(shinyWidgets)
-library(ggplot2)
-library(dplyr)
-library(BioSIM)
-library(ExtractMap)
-library(plotly)
-library(Billonage)
-library(sf)
-library(OutilsDRF)
-library(data.table)
-library(readxl)
 
 options(shiny.maxRequestSize = 500 * 1024^2)
 
@@ -67,6 +104,14 @@ ui <- dashboardPage(
       .progress {height: 10px; margin-bottom: 15px;}
       .content-wrapper {background-color: #f8f9fa;}
       .nav-tabs-custom {box-shadow: none;}
+
+      details > summary {
+        list-style: revert;
+        display: list-item;
+        cursor: pointer;
+        font-weight: 600;
+        color: #2c3e50;
+      }
 
      .reset-button {
   position: absolute;
@@ -137,7 +182,13 @@ ui <- dashboardPage(
       $(document).ready(function() {
         $('body').addClass('sidebar-collapse');
       });
-    "))
+    ")),
+      tags$script(HTML("
+      Shiny.addCustomMessageHandler('toggle_tbe', function(msg){
+      $('#enable_tbe').prop('disabled', msg.disable === true).prop('checked',false).trigger('change') ;
+      });
+      ")),
+
     ),
 
 
@@ -147,13 +198,17 @@ ui <- dashboardPage(
 
       tabItem(
         tabName = "data",
-        fluidRow(
-
+        fluidRow( #style = "margin-left: -6px; margin-right: -6px;",  # réduit l'espace global entre
+          column(
+          width = 4,
+          style = "padding-left: 2px; padding-right: 0px;",
           box(
-            width = 4,
+            id = "import_box",
+            width = 12,
             title = "Importation de données",
             status = "primary",
             solidHeader = TRUE,
+            collapsible = TRUE,
 
 
             uiOutput("file_input_ui"),
@@ -171,16 +226,29 @@ ui <- dashboardPage(
 
             uiOutput("extraction_button_final"),
 
+
+          ),
+          box(
+            width = 12,
+            title = "Configuration de la simulation",
+            status = "primary",
+            solidHeader = TRUE,
+            collapsible = TRUE,
             uiOutput("simulation_message")
+          )
           ),
 
-          box(
+          column(
             width = 8,
+            style = "padding-left: 0px; padding-right: 2px;",
+          box(
+            width = 12,
             title = "Données importées",
             status = "primary",
             solidHeader = TRUE,
-            DTOutput("contents")
+            DTOutput("contents"))
           )
+
         ),
         div(style = "position: relative; height: 40px;",
             actionButton("reset_button", "Réinitialiser", class = "reset-button", icon = icon("sync"))
@@ -258,14 +326,14 @@ ui <- dashboardPage(
                         selected = ""),
             conditionalPanel(
               condition = "input.Sortie == 'echelle_billon'",
-              selectInput("typeBillonnage", "Type de Billonnage Pétro:",
+              selectInput("typeBillonnage", "Billonnage Feuillus durs (Pétro):",
                           choices = list("DHP_Régionalisé" = "DHP", "DHP_Provincial" = "DHP2015")
               )
             ),
 
             conditionalPanel(
               condition = "input.Sortie == 'echelle_billon'",
-              h5("Paramètres Sybille", style = "color: #856404; font-weight: bold; margin-top: 15px;"),
+              h5("Billonnage Résineux", style = "font-weight: bold; margin-top: 15px;"),
               div(
                 style = "margin-bottom: 10px;",
                 numericInput("dhs_input",
@@ -292,7 +360,7 @@ ui <- dashboardPage(
               div(
                 style = "margin-top: 15px; text-align: center;",
                 actionButton("calculer_billonnage",
-                             "Calculer le billonnage",
+                             "Simuler le billonnage",
                              style = "background-color: #3c8dbc; color: white; width: 100%;",
                              icon = icon("calculator"))
               )
@@ -360,18 +428,11 @@ ui <- dashboardPage(
                 class = "documentation-section",
                 style = "margin-bottom: 30px; background-color: #f8f9fa; padding: 20px; border-radius: 8px;",
                 h3("Documentation", style = "color: #4D90D6; font-weight: 600; margin-bottom: 15px;"),
-                p("Pour vous aider à utiliser efficacement Artemis, nous vous proposons un guide d'utilisation:", style = "font-size: 16px;"),
-                div(
-                  class = "text-center",
-                  style = "margin: 20px 0;",
-                  downloadButton(
-                    "download_guide",
-                    "Télécharger le guide d'utilisation",
-                    icon = icon("file-pdf"),
-                    style = "background-color: #4D90D6; color: white; padding: 10px 20px; font-size: 16px; border: none; border-radius: 4px;"
-                  )
-                ),
-                p("Ce guide contient des instructions détaillées sur la préparation des données et la configuration des simulations.", style = "font-size: 15px; color: #6c757d; font-style: italic;")
+                p("Pour vous aider à utiliser efficacement Artemis veuillez consulter la page Wiki de l'application:", style = "font-size: 16px;"),
+
+                strong(a("Aide application R Artémis", href="https://github.com/Modelisation-DRF/Artemis2014_Shiny/wiki",style = "font-size: 16px;")),
+                br(), br(),#####Ajout de sauts de ligne
+                p("Cette page contient des instructions détaillées sur la préparation des données et la configuration des simulations.", style = "font-size: 15px; color: #6c757d; font-style: italic;")
               ),
 
               # Section fichiers d'exemple
@@ -515,7 +576,7 @@ server <- function(input, output, session) {
     processed_Simul = NULL,
     listeEspece = NULL,
     simulation_terminee = FALSE,
-    show_grade2 = TRUE,
+    show_grade2 = FALSE,
     show_grade3 = FALSE
 
   )
@@ -572,6 +633,7 @@ server <- function(input, output, session) {
     rv$extraction_completed <- FALSE
     rv$climat_annuel <- NULL
     rv$climat_mensuel <- NULL
+    rv$max_annees_simulation <- NA
     rv$simulation_terminee <- FALSE
 
     # Vider les sorties précédentes
@@ -612,6 +674,18 @@ server <- function(input, output, session) {
     return(all_errors)
   })
 
+  # fonction réactive pour valider les champs optionels
+  valider_champ_optionel <- reactive({
+    req(data())
+
+    # Appliquer les fonctions
+   champ_optionel_absent <- trouver_variable_meteo_absent(data())
+
+
+
+    return(champ_optionel_absent)
+  })
+
 
   # Afficher le tableau de données
   output$contents <- renderDT({
@@ -632,6 +706,8 @@ server <- function(input, output, session) {
   output$validation_status <- renderUI({
     req(validation_errors())
     errors <- validation_errors()
+    req(valider_champ_optionel())
+    champ_optionel_absent <- valider_champ_optionel()
 
     result_div <- div(style = "margin-top: 15px; margin-bottom: 15px;")
 
@@ -671,6 +747,18 @@ server <- function(input, output, session) {
                                      )
         )
       }
+
+    }
+    # Ajouter la liste des champs optionels absent si c'est le cas
+    if(length(champ_optionel_absent) > 0){
+      result_div <- tagAppendChild(result_div, div(
+        style = "padding-left: 20px; max-height: 200px; overflow-y: auto;",
+        h5("Champ optionel absent:"),
+        tags$ul(
+          class = "error-list",
+          lapply(champ_optionel_absent, tags$li)
+        )
+      ))
     }
 
     return(result_div)
@@ -694,7 +782,9 @@ server <- function(input, output, session) {
         )
       )
     }
+
   })
+
 
 
   # Modifier la question d'extraction pour inclure les trois options
@@ -731,7 +821,30 @@ server <- function(input, output, session) {
                 "La colonne Age_moy est manquante ou contient des erreurs. Vous ne pouvez pas utiliser les données climatiques dans votre simulation."
               )
             )
-          } else {
+          }
+          else if (length(rv$placette) > 100){
+            tagList(
+              radioButtons("extraction_choice", "",
+                           choices = list(
+                             "Simuler les données climatiques" = "extract",
+                             "Fournir les données climatiques" = "upload",
+                             "Simulation sans données climatiques" = "none"
+                           ),
+                           selected = "none"),
+              tags$script(HTML("
+              $(document).ready(function() {
+                $('input[name=\"extraction_choice\"][value=\"extract\"]').prop('disabled', true);
+              });
+            ")),
+              tags$div(
+                style = "color: #d9534f; font-style: italic; font-size: 0.9em; margin-top: 5px; margin-bottom: 10px;",
+                icon("exclamation-triangle"),
+                "Nombre de placettes trop grand pour simuler les données climatiques. Ne doit pas dépasser 100."
+              )
+            )
+          }
+
+          else {
             radioButtons("extraction_choice", "",
                          choices = list(
                            "Simuler les données climatiques" = "extract",
@@ -781,20 +894,22 @@ server <- function(input, output, session) {
     output$extraction_question <- renderUI({})
 
     if (input$extraction_choice == "extract") {
+
       # Afficher les paramètres de configuration d'extraction
-      output$extraction_button <- renderUI({
+      output$simulation_message <- renderUI({
         div(
           style = "margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6;",
-          h4("Configuration de la simulation", style = "margin-top: 0;"),
+          #h4("Configuration de la simulation", style = "margin-top: 0;"),
 
-          # Année de départ
+          # Année de départ - Paramètre non paramétrable
+          div(style = "display: none;",
           numericInput(
             "annee_depart",
             "Année de départ :",
-            value = 2025,
+            value = as.numeric(format(Sys.Date(), "%Y")),
             min = 2000,
             step = 1
-          ),
+          )),
 
           # Horizon
           numericInput(
@@ -819,7 +934,7 @@ server <- function(input, output, session) {
       })
 
       # Effacer le message de simulation
-      output$simulation_message <- renderUI({})
+      #output$simulation_message <- renderUI({})
 
     } else if (input$extraction_choice == "upload") {
       # Afficher les options pour téléverser ses propres fichiers climatiques
@@ -842,6 +957,14 @@ server <- function(input, output, session) {
                       "text/csv",
                       "text/comma-separated-values,text/plain",
                       ".csv")
+          ),
+
+          # RCP
+          radioButtons(
+            "rcp",
+            "Scénario RCP :",
+            choices = list("RCP 4.5" = "RCP45", "RCP 8.5" = "RCP85"),
+            selected = "RCP45"
           ),
 
           # Bouton pour valider l'importation
@@ -875,26 +998,19 @@ server <- function(input, output, session) {
       # Définir les variables climatiques comme NULL pour indiquer qu'elles ne sont pas utilisées
       rv$climat_annuel <- NULL
       rv$climat_mensuel <- NULL
+      rv$max_annees_simulation <- NA
 
       # Mettre à jour l'état indiquant que le processus est terminé
       rv$extraction_completed <- TRUE
 
-      # Passer directement à la question de simulation
-      output$simulation_message <- renderUI({
-        div(
-          style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
-          icon("info-circle"),
-          span(style = "font-weight: bold; margin-left: 5px;", "Vous avez choisi de ne pas utiliser de données climatiques"),
-          div(
-            style = "margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; text-align: center;",
-            h4("Souhaitez-vous effectuer une simulation?"),
-            radioButtons("simulation_choice", "",
-                         choices = list("Oui" = "yes", "Non" = "no"),
-                         selected = character(0))
-          )
-        )
-      })
+      simulation_ui()
+
     }
+
+
+    #output$validation_status <- renderUI({})
+    #output$file_input_ui <- renderUI({})
+
   })
 
 
@@ -920,23 +1036,27 @@ server <- function(input, output, session) {
       # Lire le fichier climat annuel
       climat_annuel <- read.csv(input$climat_annuel_file$datapath,
                                 header = TRUE,
-                                sep = ";",
-                                quote = "",
-                                encoding = "UTF-8")
+                                sep = ";")
 
       # Lire le fichier climat mensuel
       climat_mensuel <- read.csv(input$climat_mensuel_file$datapath,
                                  header = TRUE,
-                                 sep = ";",
-                                 quote = "",
-                                 encoding = "UTF-8")
+                                 sep = ";")
 
       # Vérifier les fichiers avec les fonctions du package Artemis
       erreurs_annuel <- verifier_colonnes_ClimAn(climat_annuel)
+      erreurs_annuel <- c(erreurs_annuel, validation_annuel(data(), climat_annuel,input$rcp))
       erreurs_mensuel <- verifier_colonnes_Clim(climat_mensuel)
+      erreurs_mensuel <- c(erreurs_mensuel, validation_mensuel(data(), climat_mensuel,input$rcp))
+      erreurs_mensuel <- c(erreurs_mensuel, valider_Mois(climat_mensuel,input$rcp) )
+
+
+      # Valider que le fichier annuel et mensuel sont cohérents
+      erreurs_comparaison <- comparer_annee_scenario(data(), climat_annuel,climat_mensuel,input$rcp)
+      #erreurs_comparaison <- NULL
 
       # Vérifier s'il y a des erreurs
-      if (length(erreurs_annuel) > 0 || length(erreurs_mensuel) > 0) {
+      if (length(erreurs_annuel) > 0 || length(erreurs_mensuel) > 0 || length(erreurs_comparaison) > 0 ) {
         showModal(modalDialog(
           title = "Erreurs dans les fichiers climatiques",
           div(
@@ -959,11 +1079,23 @@ server <- function(input, output, session) {
             # Section pour les erreurs du fichier climat mensuel
             if (length(erreurs_mensuel) > 0) {
               div(
-                style = "background-color: #fff3cd; color: #856404; padding: 15px; border: 1px solid #ffeeba; border-radius: 5px;",
+                style = "background-color: #f8d7da; color: #721c24; padding: 15px; border: 1px solid #f5c6cb; border-radius: 5px; margin-bottom: 15px;",
                 h4(paste0("Erreurs dans le fichier climat mensuel (", input$climat_mensuel_file$name, "):"),
-                   style = "border-bottom: 1px solid #856404; padding-bottom: 5px;"),
+                   style = "border-bottom: 1px solid #721c24; padding-bottom: 5px;"),
                 tags$ul(
                   lapply(erreurs_mensuel, function(error) {
+                    tags$li(error)
+                  })
+                )
+              )
+            },
+            if (length(erreurs_comparaison) > 0 ){
+              div(
+                style = "background-color: #fff3cd; color: #856404; padding: 15px; border: 1px solid #ffeeba; border-radius: 5px;",
+                h4(paste0("Incohérence dans les fichiers climatiques: ", input$climat_annuel_file$name, " et ", input$climat_mensuel_file$name),
+                   style = "border-bottom: 1px solid #856404; padding-bottom: 5px;"),
+                tags$ul(
+                  lapply(erreurs_comparaison, function(error) {
                     tags$li(error)
                   })
                 )
@@ -986,6 +1118,7 @@ server <- function(input, output, session) {
         # Si aucune erreur, stocker les données dans les variables réactives
         rv$climat_annuel <- climat_annuel
         rv$climat_mensuel <- climat_mensuel
+        rv$max_annees_simulation <- floor(extraire_nb_annee(climat_annuel,AnneeDep=as.numeric(format(Sys.Date(), "%Y")))/10)*10
 
         # Afficher une notification de succès
         showNotification(
@@ -997,21 +1130,7 @@ server <- function(input, output, session) {
         # Mettre à jour l'état
         rv$extraction_completed <- TRUE
 
-        # Afficher le message pour passer à la simulation
-        output$simulation_message <- renderUI({
-          div(
-            style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
-            icon("check-circle"),
-            span(style = "font-weight: bold; margin-left: 5px;", "Fichiers climatiques importés avec succès"),
-            div(
-              style = "margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; text-align: center;",
-              h4("Souhaitez-vous effectuer une simulation?"),
-              radioButtons("simulation_choice", "",
-                           choices = list("Oui" = "yes", "Non" = "no"),
-                           selected = character(0))
-            )
-          )
-        })
+        simulation_ui()
       }
     }, error = function(e) {
       # Afficher une notification d'erreur
@@ -1042,10 +1161,10 @@ server <- function(input, output, session) {
     # Vérifier les paramètres
     req(input$annee_depart, input$horizon, input$rcp)
 
-    # S'assurer que l'horizon est d'au moins 2
-    if (input$horizon < 2) {
+    # S'assurer que l'horizon est d'au moins 10 ans
+    if (input$horizon < 10) {
       showNotification(
-        "L'horizon doit être d'au moins 2 ans.",
+        "L'horizon doit être d'au moins 10 ans.",
         type = "error",
         duration = 5
       )
@@ -1155,11 +1274,11 @@ server <- function(input, output, session) {
     req(input$annee_depart, input$horizon, input$rcp)
 
     # Vérifier que l'horizon est au moins de 2
-    if (input$horizon < 2) {
+    if (input$horizon < 10|input$horizon %% 10 != 0) {
       div(
         style = "color: #dc3545; margin-top: 15px;",
         icon("exclamation-triangle"),
-        "L'horizon doit être d'au moins 2 ans."
+        "L'horizon doit être un multiple de 10 d'au moins 10 ans."
       )
     } else {
       # Tout est valide, afficher le bouton
@@ -1175,7 +1294,7 @@ server <- function(input, output, session) {
           block = TRUE
         ),
         p(style = "margin-top: 8px; font-size: 0.85em; color: #666; text-align: center;",
-          paste0("Période: ", input$annee_depart, " - ", input$annee_depart + input$horizon - 1,
+          paste0("Période: ", input$annee_depart, " - ", input$annee_depart + input$horizon,
                  " | Scénario: ", ifelse(input$rcp == "RCP45", "RCP 4.5", "RCP 8.5"))
         )
       )
@@ -1190,21 +1309,7 @@ server <- function(input, output, session) {
     output$extraction_button <- renderUI({})
     output$extraction_button_final <- renderUI({})
 
-    # Demander à l'utilisateur s'il souhaite effectuer une simulation
-    output$simulation_message <- renderUI({
-      div(
-        style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
-        icon("check-circle"),
-        span(style = "font-weight: bold; margin-left: 5px;", "Extraction terminée avec succès"),
-        div(
-          style = "margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; text-align: center;",
-          h4("Souhaitez-vous effectuer une simulation?"),
-          radioButtons("simulation_choice", "",
-                       choices = list("Oui" = "yes", "Non" = "no"),
-                       selected = character(0))
-        )
-      )
-    })
+    simulation_ui()
 
     # Mettre à jour l'état
     rv$extraction_completed <- TRUE
@@ -1214,8 +1319,8 @@ server <- function(input, output, session) {
 
 
   # Observateur pour le choix de simulation - avec désactivation des options supplémentaires
-  observeEvent(input$simulation_choice, {
-    if (input$simulation_choice == "yes") {
+      simulation_ui <- function()
+      {
       # Rediriger vers le panel de simulation avec les nouvelles options
       output$simulation_message <- renderUI({
         # Variable pour savoir si l'option "none" a été choisie
@@ -1225,98 +1330,124 @@ server <- function(input, output, session) {
 
 
         div(
-          style = "margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6;",
-          h4("Configuration de la simulation", style = "margin-top: 0;"),
+          style = " padding: 15px;",
+          #h4("Configuration de la simulation", style = "margin-top: 0;"),
 
           # Paramètres de recrutement ajustés
           div(
             style = "margin-top: 15px;",
-            h5("Paramètres de recrutement ajustés"),
+            h5("Paramètres de recrutement ajustés",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px;margin-top: -10px"),
             radioButtons("recrutement_ajuste", "",
                          choices = list("Non" = "non", "Oui" = "oui"),
-                         selected = "non")
+                         selected = "non",
+                         inline = TRUE)
           ),
 
           # Coupe partielle
           div(
             style = "margin-top: 15px;",
-            h5("Coupe partielle réalisée depuis moins de 10 ans"),
+            h5("Coupe partielle réalisée depuis moins de 10 ans",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
             radioButtons("coupe_partielle", "",
                          choices = list("Non" = "non", "Oui" = "oui"),
-                         selected = "non")
+                         selected = "non",
+                         inline = TRUE)
           ),
 
           # Module d'accroissement - avec désactivation des options avancées si pas de données climatiques
           div(
             style = "margin-top: 15px;",
-            h5("Module d'accroissement"),
+            h5("Module d'accroissement",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
             if (no_climate_data) {
               # Si pas de données climatiques, on désactive les options avancées
               tags$div(
-                radioButtons("module_accroissement", "",
-                             choices = list(
-                               "Original" = "original",
-                               "Wang 2023" = "brt",
-                               "D'Orangeville 2018" = "gam"),
-                             selected = "original"),
-                tags$script(HTML(paste0("
+                selectInput(
+                inputId = "module_accroissement",
+                label = "",
+                choices = list(
+                  "Original" = "original",
+                  "Wang 2023" = "brt",
+                  "D'Orangeville 2018" = "gam",
+                  "Fortin 2026" = "fortin"
+                ),
+                selected = "original",
+                selectize = FALSE
+              ),
+
+                tags$script(HTML("
                 $(document).ready(function() {
-                  $('input[name=\"module_accroissement\"][value=\"brt\"]').prop('disabled', true);
-                  $('input[name=\"module_accroissement\"][value=\"gam\"]').prop('disabled', true);
+                $('#module_accroissement option[value=\"brt\"]').prop('disabled', true);
+                $('#module_accroissement option[value=\"gam\"]').prop('disabled', true);
+                $('#module_accroissement option[value=\"fortin\"]').prop('disabled', true);
+
                 });
-              "))),
-                tags$div(
-                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
-                  "Les modules Wang 2023 et D'Orangeville 2018 sont désactivées car vous avez choisi de ne pas utiliser de données climatiques"
-                )
+              "))#,
+                #tags$div(
+                  #style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
+                  #"Les modules Wang 2023, D'Orangeville 2018 et Fortin 2026 sont désactivées car vous avez choisi de ne pas utiliser de données climatiques"
+                #)
               )
             } else {
               # Options normales si données climatiques disponibles
-              radioButtons("module_accroissement", "",
-                           choices = list(
-                             "Original" = "original",
-                             "Wang 2023" = "brt",
-                             "D'Orangeville 2018" = "gam"),
-                           selected = "original")
+              selectInput(
+                inputId = "module_accroissement",
+                label = "",
+                choices = list(
+                  "Original" = "original",
+                  "Wang 2023" = "brt",
+                  "D'Orangeville 2018" = "gam",
+                  "Fortin 2026" = "fortin"
+                ),
+                selected = "original"
+              )
+
             }
           ),
 
           # Module de mortalité - avec désactivation de l'option QUE si pas de données climatiques
           div(
             style = "margin-top: 15px;",
-            h5("Module de mortalité"),
+            h5("Module de mortalité",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
             if (no_climate_data) {
               # Si pas de données climatiques, on désactive l'option QUE
               tags$div(
-                radioButtons("module_mortalite", "",
-                             choices = list(
-                               "Original" = "original",
-                               "Power 2025" = "que"),
-                             selected = "original"),
+                selectInput(
+                  inputId = "module_mortalite",
+                  label = "",
+                  choices = list(
+                            "Original" = "original",
+                            "Power 2025" = "que",
+                            "Power 2026" = "caneu"),
+                        selected = "original",
+                        selectize = FALSE
+                             ),
                 tags$script(HTML("
-                $(document).ready(function() {
-                  $('input[name=\"module_mortalite\"][value=\"que\"]').prop('disabled', true);
+                 $(document).ready(function() {
+                  $('#module_mortalite option[value=\"que\"]').prop('disabled', true);
+                  $('#module_mortalite option[value=\"CANEU\"]').prop('disabled', true);
                 });
               ")),
                 tags$div(
-                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
-                  "Le module Power 2025 est désactivée car vous avez choisi de ne pas utiliser de données climatiques"
+                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: -10px;",
+                  "Options des modules d'accroissement et de mortalité désactivés car vous avez choisi de ne pas utiliser de données climatiques"
                 )
               )
             } else {
               # Options normales si données climatiques disponibles
-              radioButtons("module_mortalite", "",
-                           choices = list(
-                             "Original" = "original",
-                             "Power 2025" = "que"),
-                           selected = "original")
+              selectInput(
+                inputId = "module_mortalite",
+                label = "",
+                choices = list(
+                  "Original" = "original",
+                  "Power 2025" = "que",
+                  "Power 2026" = "caneu"),
+                selected = "original")
             }
           ),
 
           # Nombre d'années de simulation
           div(
             style = "margin-top: 15px;",
-            h5("Nombre d'années de simulation (multiple de 10)"),
+            h5("Nombre d'années de simulation (multiple de 10)",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
             if (extracted_climate_data && !is.null(rv$extraction_horizon)) {
               # Si données extraites, afficher un champ désactivé avec l'horizon * 10
               div(
@@ -1330,7 +1461,7 @@ server <- function(input, output, session) {
                 });
               ")),
                 tags$div(
-                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
+                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: -15px;",
                   "Ce champ est automatiquement défini selon l'horizon de simulation climatique"
                 )
               )
@@ -1339,6 +1470,7 @@ server <- function(input, output, session) {
               numericInput("annees_simulation", "",
                            value = 10,
                            min = 10,
+                           max = if (!no_climate_data) rv$max_annees_simulation else NA,
                            step = 10)
             }
           )
@@ -1348,20 +1480,21 @@ server <- function(input, output, session) {
           # Évolution du climat - désactivée si pas de données climatiques
           div(
             style = "margin-top: 15px;",
-            h5("Évolution du climat"),
+            h5("Évolution du climat",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
             if (no_climate_data) {
               # Option désactivée avec message d'information
               tags$div(
                 radioButtons("evolution_climat", "",
                              choices = list("Oui" = "yes", "Non" = "no"),
-                             selected = "no"),
+                             selected = "no",
+                             inline = TRUE),
                 tags$script(HTML("
                 $(document).ready(function() {
                   $('input[name=\"evolution_climat\"]').prop('disabled', true);
                 });
               ")),
                 tags$div(
-                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
+                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: -10px;",
                   "Option désactivée car vous avez choisi de ne pas utiliser de données climatiques"
                 )
               )
@@ -1369,7 +1502,8 @@ server <- function(input, output, session) {
               # Options normales
               radioButtons("evolution_climat", "",
                            choices = list("Oui" = "yes", "Non" = "no"),
-                           selected = "yes")
+                           selected = "yes",
+                           inline = TRUE)
             }
           ),
 
@@ -1380,13 +1514,17 @@ server <- function(input, output, session) {
 
             conditionalPanel(
               condition = "input.enable_coupe == true",
-              div(
-                style = "margin-top: 10px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
-                p("Configurez les traitements de coupe par décennie:",
-                  style = "font-size: 0.9em; margin-bottom: 10px;"),
-
-                # Interface dynamique pour chaque décennie
-                uiOutput("coupe_config_ui")
+              tags$details(
+                open = NA, # enlève pour démarrer fermé; mets = "open" pour démarrer ouvert
+                style = "margin-top: -10px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
+                tags$summary(
+                  "Configurez les traitements de coupe par décennie",
+                  style = "cursor: pointer; font-weight: 600; color: #2c3e50;"
+                ),
+                div(
+                  style = "margin-top: 10px;",
+                  uiOutput("coupe_config_ui")
+                )
               )
             )
           ),
@@ -1394,20 +1532,32 @@ server <- function(input, output, session) {
           div(
             style = "margin-top: 15px;",
             h5("Tordeuse des bourgeons de l'épinette (TBE)", style = "color: #2c3e50; font-weight: bold;"),
-            checkboxInput("enable_tbe", "Activer l'effet TBE", value = FALSE),
+            checkboxInput("enable_tbe", "Activer défoliation TBE", value = FALSE),
+
+            tags$div(
+              style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: -20px;",
+              "La défoliation TBE s'active uniquement avec les modules d'accroissement et de moratlité 'Original'"
+            ),
 
             conditionalPanel(
               condition = "input.enable_tbe == true",
-              div(
+              tags$details(
+                open = NA,
                 style = "margin-top: 10px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
-                p("Sélectionnez les décennies avec effet TBE:",
-                  style = "font-size: 0.9em; margin-bottom: 10px;"),
-
-                # Interface pour sélectionner les années avec TBE
-                uiOutput("tbe_config_ui")
+                tags$summary(
+                  "Sélectionnez les décennies avec défoliation sévère par la TBE:",
+                  style = "cursor: pointer; font-weight: 600; color: #2c3e50;"
+                ),
+                div(
+                  style = "margin-top: 10px;",
+                  uiOutput("tbe_config_ui")
+                )
               )
             )
+
           ),
+
+
 
           # Bouton pour lancer la simulation
           div(
@@ -1424,17 +1574,7 @@ server <- function(input, output, session) {
         )
       })
 
-    } else if (input$simulation_choice == "no") {
-      # Afficher un message de fin
-      output$simulation_message <- renderUI({
-        div(
-          style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
-          icon("check-circle"),
-          span(style = "font-weight: bold; margin-left: 5px;", "Processus terminé")
-        )
-      })
     }
-  })
 
   observeEvent(input$enable_coupe, {
     if (input$enable_coupe && !is.null(input$annees_simulation)) {
@@ -1450,6 +1590,19 @@ server <- function(input, output, session) {
       rv$coupe_modif_vector <- NULL
     }
   })
+
+
+  observeEvent(
+    list(input$module_accroissement, input$module_mortalite),
+    ignoreInit = TRUE,
+    {
+      desactiver_tbe <- !(input$module_accroissement == "original" &&
+                              input$module_mortalite     == "original")
+      # enabled si au moins un est "original"
+      session$sendCustomMessage("toggle_tbe", list(disable = desactiver_tbe))
+    }
+  )
+
 
   observeEvent(input$enable_tbe, {
     if (input$enable_tbe && !is.null(input$annees_simulation)) {
@@ -1477,17 +1630,22 @@ server <- function(input, output, session) {
                     selected = NULL)
       ),
       div(
-        style = "margin-bottom: 15px;",
+        style = "margin-bottom: 15px;margin-top:-10px",
         selectInput("type_coupe", "Type de coupe:",
                     choices = c("Aucune coupe" = "NA",
-                                setNames(0:18, paste("Coupe", 0:18))),
+                                 setNames(c(0:1,6:9,12:19), c("Coupe d'amélioration","Coupe d'éclaircie","Coupe de jardinage","Coupe progressive",
+                                                     "Éclaircie commerciale","Éclaicie sélective","Coupe progressive (CPI_CP)",
+                                                     "Coupe progressive (CPI_RL)","Coupe réserve semanciers","Jardinage CIMOTFF",
+                                                     "Jarinage gr. arbres CIMOTFF", "CPI_CP CIMOTFF","CPI_RL CIMOTFF","CPRS"))),
+                                #setNames(0:1,c("Éclaicie","CPRS"))),
                     selected = "NA")
+
       ),
 
       # Section pour le type de modificateur
       div(
-        style = "margin-bottom: 15px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
-        h6("Type de modificateur:", style = "margin-bottom: 10px;"),
+        style = "margin-bottom: 10px;margin-top:-10px",
+        h5("Type de modificateur:", style = "margin-bottom: -10px;margin-top:-10px;font-weight: bold;"),
         radioButtons("type_modif", "",
                      choices = list(
                        "Modificateur simple (même valeur pour toutes les essences)" = "simple",
@@ -1498,18 +1656,21 @@ server <- function(input, output, session) {
         # Interface conditionnelle selon le choix
         conditionalPanel(
           condition = "input.type_modif == 'simple'",
+          div(style = "margin-top:-10px",
           numericInput("modif_coupe", "Modificateur (%):",
-                       value = 0, min = -80, max = 160, step = 5)
+                       value = 0, min = -80, max = 160, step = 5))
         ),
 
         conditionalPanel(
           condition = "input.type_modif == 'excel'",
           div(
+            style = "margin-bottom: -20px;margin-top:-10px",
             fileInput("modif_excel_file", "Fichier des modificateurs:",
                       accept = c(".xlsx", ".xls", ".csv")),
             div(
-              style = "font-size: 0.85em; color: #6c757d; font-style: italic;",
-              "Le fichier doit contenir les colonnes 'ess_ind' et 'modifier' (Excel ou CSV)"
+              style = "font-size: 0.85em; color: #6c757d; font-style: italic;margin-top:-40px; margin-bottom:30px",
+              "Le fichier doit contenir les colonnes 'ess_ind' et 'modifier'
+              (Excel ou CSV) modifier doit se situer entre -80 et 160%"
             )
           )
         )
@@ -1517,11 +1678,11 @@ server <- function(input, output, session) {
 
       div(
         style = "margin-bottom: 10px;",
-        div(
-          style = "margin-bottom: 5px;",
-          actionButton("apply_coupe", "Appliquer la coupe",
-                       style = "background-color: #3c8dbc; color: white; width: 100%;")
-        ),
+        # div(
+        #   style = "margin-bottom: 5px;",
+        #   actionButton("apply_coupe", "Appliquer la coupe",
+        #                style = "background-color: #3c8dbc; color: white; width: 100%;")
+        # ),
         div(
           actionButton("clear_coupes", "Effacer toutes les coupes",
                        style = "background-color: #dc3545; color: white; width: 100%;")
@@ -1545,26 +1706,26 @@ server <- function(input, output, session) {
     div(
       div(
         style = "margin-bottom: 15px;",
-        selectInput("decennie_tbe", "Décennie TBE:",
+        selectInput("decennie_tbe", "Décennie:",
                     choices = setNames(0:(horizon-1), paste("Décennie", 0:(horizon-1), "-", 1:horizon)),
                     selected = NULL)
       ),
       div(
-        style = "margin-bottom: 15px;",
-        selectInput("effet_tbe", "Effet TBE:",
+        style = "margin-bottom: 15px; margin-top:-10px",
+        selectInput("effet_tbe", "Défoliation TBE:",
                     choices = list("Absent" = 0, "Présent" = 1),
                     selected = 0)
       ),
 
       div(
         style = "margin-bottom: 10px;",
+        # div(
+        #   style = "margin-bottom: 5px;",
+        #   actionButton("apply_tbe", "Appliquer TBE",
+        #                style = "background-color: #3c8dbc; color: white; width: 100%;")
+        # ),
         div(
-          style = "margin-bottom: 5px;",
-          actionButton("apply_tbe", "Appliquer TBE",
-                       style = "background-color: #3c8dbc; color: white; width: 100%;")
-        ),
-        div(
-          actionButton("clear_tbe", "Effacer tous les TBE",
+          actionButton("clear_tbe", "Effacer défoliations TBE",
                        style = "background-color: #dc3545; color: white; width: 100%;")
         )
       ),
@@ -1579,7 +1740,7 @@ server <- function(input, output, session) {
   })
 
   # Observateurs pour appliquer les modifications aux vecteurs
-  observeEvent(input$apply_coupe, {
+  observeEvent( list(input$type_coupe, input$modif_coupe, input$modif_excel_file), {
     req(input$decennie_coupe, input$type_coupe)
 
     if (input$type_coupe == "NA") {
@@ -1643,7 +1804,9 @@ server <- function(input, output, session) {
                      type = "message", duration = 2)
   })
 
-  observeEvent(input$apply_tbe, {
+  observeEvent({input$decennie_tbe
+                input$effet_tbe
+  }, {
     req(input$decennie_tbe, input$effet_tbe)
 
     decennie_idx <- as.numeric(input$decennie_tbe) + 1
@@ -1791,6 +1954,19 @@ server <- function(input, output, session) {
       return()
     }
 
+    # Vérifier que le nombre d'années est inférieur ou égal au nombre d'années du fichier climatique
+  if (input$extraction_choice=="upload"){
+
+    if (input$annees_simulation > rv$max_annees_simulation) {
+      showNotification(
+        "Le nombre d'années de simulation dépasse l'horizon des données climatiques",
+        type = "error",
+        duration = 5
+      )
+      return()
+    }
+  }
+
     # Si données climatiques sont requises mais pas disponibles (pas pour option "none")
     if (!is.null(rv$extraction_option) && rv$extraction_option != "none" &&
         (is.null(rv$climat_annuel) || is.null(rv$climat_mensuel))) {
@@ -1876,10 +2052,12 @@ server <- function(input, output, session) {
       AccModif <- switch(input$module_accroissement,
                          "original" = "ORI",
                          "brt" = "BRT",
-                         "gam" = "GAM" )
+                         "gam" = "GAM",
+                         "fortin"="QUE")
       MortModif <- switch(input$module_mortalite,
                           "original" = "ORI",
-                          "que" = "QUE")
+                          "que" = "QUE",
+                          "caneu" = "CANEU")
     }
 
     # Déterminer le RCP à utiliser
@@ -1949,7 +2127,8 @@ server <- function(input, output, session) {
 
       module_mort_utilise <- if (no_climate_data) "Original (ORI)" else switch(input$module_mortalite,
                                                                                "original" = "Original (ORI)",
-                                                                               "que" = "Power 2025")
+                                                                               "que" = "Power 2025",
+                                                                               "caneu" = "Power 2026")
 
       # Afficher un résultat de simulation
       showModal(modalDialog(
@@ -1968,6 +2147,11 @@ server <- function(input, output, session) {
               tags$li(paste0("Module d'accroissement : ", module_acc_utilise)),
               tags$li(paste0("Module de mortalité : ", module_mort_utilise)),
               tags$li(paste0("Nombre d'années : ", input$annees_simulation)),
+              tags$li(paste0("Défoliation TBE : ",ifelse(input$enable_tbe, "Oui", "Non") )),
+              tags$li(paste0("Traitement de coupe : ",ifelse(input$enable_coupe, "Oui", "Non") )),
+              if (input$enable_coupe) {
+                verbatimTextOutput("display_coupes")
+              },
               if (no_climate_data) {
                 tags$li(paste0("Évolution du climat : Non (Données climatiques non utilisées)"))
               } else {
@@ -2481,7 +2665,12 @@ server <- function(input, output, session) {
             tags$li(paste0("Évolution climat: ", ifelse(input$evolution_climat == "yes", "Oui", "Non")))
           )
         },
-        tags$li(paste0("Années de simulation: ", input$annees_simulation))
+        tags$li(paste0("Années de simulation: ", input$annees_simulation),
+        tags$li(paste0("Défoliation TBE : ",ifelse(input$enable_tbe, "Oui", "Non") )),
+        tags$li(paste0("Traitement de coupe : ",ifelse(input$enable_coupe, "Oui", "Non") )),
+        if (input$enable_coupe) {
+          verbatimTextOutput("display_coupes")
+        })
       )
 
     )
