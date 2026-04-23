@@ -650,6 +650,8 @@ server <- function(input, output, session) {
                    sep = ";",
                    quote = "",
                    encoding = "UTF-8")
+    df<-renommer_les_colonnes(df)
+
     return(df)
   })
 
@@ -1196,6 +1198,8 @@ server <- function(input, output, session) {
 
     # Appeler la fonction GenereClimat
     result <- tryCatch({
+
+
       GenereClimat(Data_Ori= data() ,AnneeDep = annee_depart,AnneeFin = annee_fin,  RCP = rcp)
     }, error = function(e) {
       showNotification(paste("Erreur lors de la simulation:", e$message), type = "error", duration = 10)
