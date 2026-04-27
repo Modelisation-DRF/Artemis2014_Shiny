@@ -66,7 +66,7 @@ echo Demarrage d'Artemis...
 echo R trouve: %R_PATH%
 echo.
 
-"%RSCRIPT%" "run_shiny.R"
+"%RSCRIPT%" "runShinyApp.R"
 
 REM --- Gestion des erreurs de sortie ---
 if %ERRORLEVEL% NEQ 0 (
