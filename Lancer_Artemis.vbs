@@ -1,7 +1,7 @@
 ' ============================================================================
-' Lanceur SaMARE - Application Shiny
+' Lanceur Artemis - Application Shiny 
 ' ============================================================================
-' Ce script lance l'application SaMARE
+' Ce script lance l'application Artemis
 ' Affiche une fenetre d'information pendant le demarrage
 ' ============================================================================
 
@@ -15,7 +15,7 @@ strBatPath = strCurrentDir & "\_launcher.bat"
 ' Verifier que le fichier batch existe
 If Not objFSO.FileExists(strBatPath) Then
     MsgBox "Erreur: Le fichier _launcher.bat est introuvable." & vbCrLf & _
-           "Chemin attendu: " & strBatPath, vbCritical, "SaMARE - Erreur"
+           "Chemin attendu: " & strBatPath, vbCritical, "Artemis - Erreur"
     WScript.Quit 1
 End If
 
@@ -27,7 +27,7 @@ objShell.Run """" & strBatPath & """", 7, False
 
 ' Afficher une fenetre d'information avec timeout de 15 secondes
 ' La fenetre se ferme automatiquement apres 15 sec OU si l'utilisateur clique OK
-strMessage = "Lancement de SaMARE en cours..." & vbCrLf & vbCrLf & _
+strMessage = "Lancement d'Artemis en cours..." & vbCrLf & vbCrLf & _
              "Veuillez patienter quelques instants." & vbCrLf & vbCrLf & _
              "Le systeme effectue les operations suivantes :" & vbCrLf & _
              "   - Verification des packages R requis" & vbCrLf & _
@@ -39,7 +39,7 @@ strMessage = "Lancement de SaMARE en cours..." & vbCrLf & vbCrLf & _
 
 ' Popup(message, secondes, titre, type)
 ' Type 64 = Icone information
-objShell.Popup strMessage, 15, "SaMARE - Demarrage", 64
+objShell.Popup strMessage, 15, "Artemis - Demarrage", 64
 
 ' Nettoyage
 Set objFSO = Nothing
