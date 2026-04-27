@@ -1427,7 +1427,7 @@ server <- function(input, output, session) {
                 tags$script(HTML("
                  $(document).ready(function() {
                   $('#module_mortalite option[value=\"que\"]').prop('disabled', true);
-                  $('#module_mortalite option[value=\"CANEU\"]').prop('disabled', true);
+                  $('#module_mortalite option[value=\"caneu\"]').prop('disabled', true);
                 });
               ")),
                 tags$div(
@@ -2124,13 +2124,14 @@ server <- function(input, output, session) {
       removeModal()
 
       # Définir les valeurs réelles utilisées pour les modules en cas d'absence de données climatiques
-      module_acc_utilise <- if (no_climate_data) "Original (ORI)" else switch(input$module_accroissement,
-                                                                              "original" = "Original (ORI)",
+      module_acc_utilise <- if (no_climate_data) "Original" else switch(input$module_accroissement,
+                                                                              "original" = "Original",
                                                                               "brt" = "Wang 2023",
-                                                                              "gam" = "D'Orangeville 2018")
+                                                                              "gam" = "D'Orangeville 2018",
+                                                                              "fortin"= "Fortin 2026")
 
-      module_mort_utilise <- if (no_climate_data) "Original (ORI)" else switch(input$module_mortalite,
-                                                                               "original" = "Original (ORI)",
+      module_mort_utilise <- if (no_climate_data) "Original" else switch(input$module_mortalite,
+                                                                               "original" = "Original",
                                                                                "que" = "Power 2025",
                                                                                "caneu" = "Power 2026")
 
@@ -2660,6 +2661,13 @@ server <- function(input, output, session) {
       h5("Informations sur la simulation:"),
       tags$ul(
         tags$li(paste0("Recrutement ajusté: ", ifelse(input$recrutement_ajuste == "oui", "Oui", "Non"))),
+        tags$li(paste0("Module accroissement: ",case_when(input$module_accroissement=="original"~"Original",
+                                                          input$module_accroissement=="brt"~"Wang 2023",
+                                                          input$module_accroissement=="gam"~"D'Orangeville 2018",
+                                                          .default="Fortin 2026"))),
+        tags$li(paste0("Module mortalité: ",case_when(input$module_mortalite=="original"~"Original",
+                                                      input$module_mortalite=="que"~"Power 2025",
+                                                      .default="Power 2026"))),
         tags$li(paste0("Coupe partielle: ", ifelse(input$coupe_partielle == "oui", "Oui", "Non"))),
         if (no_climate_data) {
           tags$li("Données climatiques: Non utilisées")
