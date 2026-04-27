@@ -4,9 +4,10 @@
 
 if (!require("remotes", character.only = TRUE)) {
     install.packages("remotes")
-    library(remotes)
-}
 
+  }
+
+  library(remotes)
 
 packages <- c("shiny","shinydashboard","shinyWidgets","DT","dplyr", "ggplot2", "plotly","data.table","readxl","sf")
 
@@ -649,6 +650,8 @@ server <- function(input, output, session) {
                    sep = ";",
                    quote = "",
                    encoding = "UTF-8")
+    df<-renommer_les_colonnes(df)
+
     return(df)
   })
 
@@ -1117,7 +1120,7 @@ server <- function(input, output, session) {
         # Si aucune erreur, stocker les données dans les variables réactives
         rv$climat_annuel <- climat_annuel
         rv$climat_mensuel <- climat_mensuel
-        rv$max_annees_simulation <- floor(extraire_nb_annee(climat_annuel)/10)*10
+        rv$max_annees_simulation <- floor(extraire_nb_annee(climat_annuel,AnneeDep=as.numeric(format(Sys.Date(), "%Y")))/10)*10
 
         # Afficher une notification de succès
         showNotification(
@@ -1195,6 +1198,8 @@ server <- function(input, output, session) {
 
     # Appeler la fonction GenereClimat
     result <- tryCatch({
+
+
       GenereClimat(Data_Ori= data() ,AnneeDep = annee_depart,AnneeFin = annee_fin,  RCP = rcp)
     }, error = function(e) {
       showNotification(paste("Erreur lors de la simulation:", e$message), type = "error", duration = 10)
@@ -1293,7 +1298,7 @@ server <- function(input, output, session) {
           block = TRUE
         ),
         p(style = "margin-top: 8px; font-size: 0.85em; color: #666; text-align: center;",
-          paste0("Période: ", input$annee_depart, " - ", input$annee_depart + input$horizon - 1,
+          paste0("Période: ", input$annee_depart, " - ", input$annee_depart + input$horizon,
                  " | Scénario: ", ifelse(input$rcp == "RCP45", "RCP 4.5", "RCP 8.5"))
         )
       )
@@ -1415,14 +1420,14 @@ server <- function(input, output, session) {
                   choices = list(
                             "Original" = "original",
                             "Power 2025" = "que",
-                            "Power 2026" = "CANEU"),
+                            "Power 2026" = "caneu"),
                         selected = "original",
                         selectize = FALSE
                              ),
                 tags$script(HTML("
                  $(document).ready(function() {
                   $('#module_mortalite option[value=\"que\"]').prop('disabled', true);
-                  $('#module_mortalite option[value=\"CANEU\"]').prop('disabled', true);
+                  $('#module_mortalite option[value=\"caneu\"]').prop('disabled', true);
                 });
               ")),
                 tags$div(
@@ -1438,7 +1443,7 @@ server <- function(input, output, session) {
                 choices = list(
                   "Original" = "original",
                   "Power 2025" = "que",
-                  "Power 2026" = "CANEU"),
+                  "Power 2026" = "caneu"),
                 selected = "original")
             }
           ),
@@ -1953,6 +1958,19 @@ server <- function(input, output, session) {
       return()
     }
 
+    # Vérifier que le nombre d'années est inférieur ou égal au nombre d'années du fichier climatique
+  if (input$extraction_choice=="upload"){
+
+    if (input$annees_simulation > rv$max_annees_simulation) {
+      showNotification(
+        "Le nombre d'années de simulation dépasse l'horizon des données climatiques",
+        type = "error",
+        duration = 5
+      )
+      return()
+    }
+  }
+
     # Si données climatiques sont requises mais pas disponibles (pas pour option "none")
     if (!is.null(rv$extraction_option) && rv$extraction_option != "none" &&
         (is.null(rv$climat_annuel) || is.null(rv$climat_mensuel))) {
@@ -2042,7 +2060,8 @@ server <- function(input, output, session) {
                          "fortin"="QUE")
       MortModif <- switch(input$module_mortalite,
                           "original" = "ORI",
-                          "que" = "QUE")
+                          "que" = "QUE",
+                          "caneu" = "CANEU")
     }
 
     # Déterminer le RCP à utiliser
@@ -2105,14 +2124,16 @@ server <- function(input, output, session) {
       removeModal()
 
       # Définir les valeurs réelles utilisées pour les modules en cas d'absence de données climatiques
-      module_acc_utilise <- if (no_climate_data) "Original (ORI)" else switch(input$module_accroissement,
-                                                                              "original" = "Original (ORI)",
+      module_acc_utilise <- if (no_climate_data) "Original" else switch(input$module_accroissement,
+                                                                              "original" = "Original",
                                                                               "brt" = "Wang 2023",
-                                                                              "gam" = "D'Orangeville 2018")
+                                                                              "gam" = "D'Orangeville 2018",
+                                                                              "fortin"= "Fortin 2026")
 
-      module_mort_utilise <- if (no_climate_data) "Original (ORI)" else switch(input$module_mortalite,
-                                                                               "original" = "Original (ORI)",
-                                                                               "que" = "Power 2025")
+      module_mort_utilise <- if (no_climate_data) "Original" else switch(input$module_mortalite,
+                                                                               "original" = "Original",
+                                                                               "que" = "Power 2025",
+                                                                               "caneu" = "Power 2026")
 
       # Afficher un résultat de simulation
       showModal(modalDialog(
@@ -2640,6 +2661,13 @@ server <- function(input, output, session) {
       h5("Informations sur la simulation:"),
       tags$ul(
         tags$li(paste0("Recrutement ajusté: ", ifelse(input$recrutement_ajuste == "oui", "Oui", "Non"))),
+        tags$li(paste0("Module accroissement: ",case_when(input$module_accroissement=="original"~"Original",
+                                                          input$module_accroissement=="brt"~"Wang 2023",
+                                                          input$module_accroissement=="gam"~"D'Orangeville 2018",
+                                                          .default="Fortin 2026"))),
+        tags$li(paste0("Module mortalité: ",case_when(input$module_mortalite=="original"~"Original",
+                                                      input$module_mortalite=="que"~"Power 2025",
+                                                      .default="Power 2026"))),
         tags$li(paste0("Coupe partielle: ", ifelse(input$coupe_partielle == "oui", "Oui", "Non"))),
         if (no_climate_data) {
           tags$li("Données climatiques: Non utilisées")
