@@ -2,73 +2,29 @@
 #source("dev_functions.R") -> tester fonctions d'autres packages dans le fichier correspondant ici, run la ligne
 #et le code du fichier, mettre en commentaire pour retourner sur les fonctions des packages
 
-if (!require("remotes", character.only = TRUE)) {
-    install.packages("remotes")
-
-  }
-
-  library(remotes)
-
-packages <- c("shiny","shinydashboard","shinyWidgets","DT","dplyr", "ggplot2", "plotly","data.table","readxl","sf")
-
-for (pkg in packages) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    install.packages(pkg)
-  }
-  library(pkg, character.only = TRUE)
-}
-
-if (!require("BioSIM", character.only = TRUE)) {
-
-  remotes::install_github("RNCan/BioSimClient_R")
-  library(BioSIM)
-}
-
-if (!require("Artemis2014", character.only = TRUE)) {
-
-  remotes::install_github("Modelisation-DRF/Artemis2014")
-  library(Artemis2014)
-}
-
-if (!require("ExtractMap", character.only = TRUE)) {
-
-  remotes::install_github("Modelisation-DRF/ExtractMap")
-  library(ExtractMap)
-}
-
-if (!require("BillonnagePetro", character.only = TRUE)) {
-
-  remotes::install_github("Modelisation-DRF/BillonnagePetro")
-  library(BillonnagePetro)
-}
-
-if (!require("OutilsDRF", character.only = TRUE)) {
-
-  remotes::install_github("Modelisation-DRF/OutilsDRF")
-  library(OutilsDRF)
-}
-
-
-#library(shiny)
-#library(DT)
-#library(Artemis2014)
-#library(shinydashboard)
-#library(shinyWidgets)
-#library(ggplot2)
-#library(dplyr)
-#library(BioSIM)
-#library(ExtractMap)
-#library(plotly)
-#library(BillonnagePetro)
-#library(sf)
-#library(OutilsDRF)
-#library(data.table)
-#library(readxl)
-
+library(shiny)
+library(DT)
+library(Artemis2014)
+library(shinydashboard)
+library(shinyWidgets)
+library(ggplot2)
+library(dplyr)
+library(BioSIM)
+library(ExtractMap)
+library(plotly)
+library(BillonnagePetro)
+library(sf)
+library(OutilsDRF)
+library(data.table)
+library(readxl)
 
 options(shiny.maxRequestSize = 500 * 1024^2)
 
-
+#DetectionContexte_________________________________________________________####
+# Détecter si on est dans RStudio (interactif) ou lancé en batch (VBS)
+# Cela permet de ne pas tuer la session R quand on est dans RStudio
+is_rstudio <- Sys.getenv("RSTUDIO") == "1"
+is_interactive_session <- interactive() && is_rstudio
 
 # Interface utilisateur
 ui <- dashboardPage(
@@ -560,6 +516,18 @@ ui <- dashboardPage(
 # Serveur
 server <- function(input, output, session) {
 
+  session$onSessionEnded(function() {
+    # Nettoyage mémoire
+    gc()
+    message("Session fermée.")
+    
+    # Quitter R seulement si on n'est PAS dans RStudio (lancé via VBS)
+    if (!is_interactive_session) {
+      Sys.sleep(0.5)
+      q(save = "no")
+    }
+  })
+  
   rv <- reactiveValues(
     data_valid = FALSE,
     extraction_choice_made = FALSE,
