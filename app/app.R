@@ -520,14 +520,14 @@ server <- function(input, output, session) {
     # Nettoyage mémoire
     gc()
     message("Session fermée.")
-    
+
     # Quitter R seulement si on n'est PAS dans RStudio (lancé via VBS)
     if (!is_interactive_session) {
       Sys.sleep(0.5)
       q(save = "no")
     }
   })
-  
+
   rv <- reactiveValues(
     data_valid = FALSE,
     extraction_choice_made = FALSE,
@@ -649,7 +649,7 @@ server <- function(input, output, session) {
     req(data())
 
     # Appliquer les fonctions
-   champ_optionel_absent <- trouver_variable_meteo_absent(data())
+   champ_optionel_absent <- trouver_noms_optionels(data())
 
 
 
