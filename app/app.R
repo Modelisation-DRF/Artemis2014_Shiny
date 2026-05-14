@@ -2,73 +2,29 @@
 #source("dev_functions.R") -> tester fonctions d'autres packages dans le fichier correspondant ici, run la ligne
 #et le code du fichier, mettre en commentaire pour retourner sur les fonctions des packages
 
-if (!require("remotes", character.only = TRUE)) {
-    install.packages("remotes")
-
-  }
-
-  library(remotes)
-
-packages <- c("shiny","shinydashboard","shinyWidgets","DT","dplyr", "ggplot2", "plotly","data.table","readxl","sf")
-
-for (pkg in packages) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    install.packages(pkg)
-  }
-  library(pkg, character.only = TRUE)
-}
-
-if (!require("BioSIM", character.only = TRUE)) {
-
-  remotes::install_github("RNCan/BioSimClient_R")
-  library(BioSIM)
-}
-
-if (!require("Artemis2014", character.only = TRUE)) {
-
-  remotes::install_github("Modelisation-DRF/Artemis2014")
-  library(Artemis2014)
-}
-
-if (!require("ExtractMap", character.only = TRUE)) {
-
-  remotes::install_github("Modelisation-DRF/ExtractMap")
-  library(ExtractMap)
-}
-
-if (!require("BillonnagePetro", character.only = TRUE)) {
-
-  remotes::install_github("Modelisation-DRF/BillonnagePetro")
-  library(BillonnagePetro)
-}
-
-if (!require("OutilsDRF", character.only = TRUE)) {
-
-  remotes::install_github("Modelisation-DRF/OutilsDRF")
-  library(OutilsDRF)
-}
-
-
-#library(shiny)
-#library(DT)
-#library(Artemis2014)
-#library(shinydashboard)
-#library(shinyWidgets)
-#library(ggplot2)
-#library(dplyr)
-#library(BioSIM)
-#library(ExtractMap)
-#library(plotly)
-#library(BillonnagePetro)
-#library(sf)
-#library(OutilsDRF)
-#library(data.table)
-#library(readxl)
-
+library(shiny)
+library(DT)
+library(Artemis2014)
+library(shinydashboard)
+library(shinyWidgets)
+library(ggplot2)
+library(dplyr)
+library(BioSIM)
+library(ExtractMap)
+library(plotly)
+library(BillonnagePetro)
+library(sf)
+library(OutilsDRF)
+library(data.table)
+library(readxl)
 
 options(shiny.maxRequestSize = 500 * 1024^2)
 
-
+#DetectionContexte_________________________________________________________####
+# Détecter si on est dans RStudio (interactif) ou lancé en batch (VBS)
+# Cela permet de ne pas tuer la session R quand on est dans RStudio
+is_rstudio <- Sys.getenv("RSTUDIO") == "1"
+is_interactive_session <- interactive() && is_rstudio
 
 # Interface utilisateur
 ui <- dashboardPage(
@@ -560,6 +516,18 @@ ui <- dashboardPage(
 # Serveur
 server <- function(input, output, session) {
 
+  session$onSessionEnded(function() {
+    # Nettoyage mémoire
+    gc()
+    message("Session fermée.")
+
+    # Quitter R seulement si on n'est PAS dans RStudio (lancé via VBS)
+    if (!is_interactive_session) {
+      Sys.sleep(0.5)
+      q(save = "no")
+    }
+  })
+
   rv <- reactiveValues(
     data_valid = FALSE,
     extraction_choice_made = FALSE,
@@ -681,7 +649,7 @@ server <- function(input, output, session) {
     req(data())
 
     # Appliquer les fonctions
-   champ_optionel_absent <- trouver_variable_meteo_absent(data())
+   champ_optionel_absent <- trouver_noms_optionels(data())
 
 
 
@@ -1357,6 +1325,16 @@ server <- function(input, output, session) {
                          inline = TRUE)
           ),
 
+          # Maladie corticale du hêtre
+          div(
+            style = "margin-top: 15px;",
+            h5("Maladie corticale du hêtre",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
+            radioButtons("mch", "",
+                         choices = list("Non" = "non", "Oui" = "oui"),
+                         selected = "non",
+                         inline = TRUE)
+          ),
+
           # Module d'accroissement - avec désactivation des options avancées si pas de données climatiques
           div(
             style = "margin-top: 15px;",
@@ -1936,7 +1914,7 @@ server <- function(input, output, session) {
   # Ajout d'un observateur pour l'action de lancer la simulation - avec restrictions des options
   observeEvent(input$lancer_simulation, {
     # Vérifier que tous les paramètres sont sélectionnés
-    if (is.null(input$recrutement_ajuste) || is.null(input$coupe_partielle) ||
+    if (is.null(input$recrutement_ajuste) || is.null(input$coupe_partielle) || is.null(input$mch) ||
         is.null(input$module_accroissement) || is.null(input$module_mortalite) ||
         is.null(input$annees_simulation)) {
 
@@ -2035,6 +2013,7 @@ server <- function(input, output, session) {
     # Conversion des choix d'interface en paramètres pour la fonction
     Tendance <- ifelse(input$recrutement_ajuste == "oui", 1, 0)
     Residuel <- ifelse(input$coupe_partielle == "oui", 1, 0)
+    mch <- ifelse(input$mch == "oui", 1, 0)
 
     if (!is.null(rv$extraction_option) && rv$extraction_option == "extract" && !is.null(rv$extraction_horizon)) {
       Horizon <- rv$extraction_horizon
@@ -2104,7 +2083,8 @@ server <- function(input, output, session) {
         RCP = RCP_value,
         Coupe_ON = coupe_on,
         Coupe_modif = coupe_modif,
-        TBE = tbe
+        TBE = tbe,
+        MCH = mch
       )
     }, error = function(e) {
       removeModal()
@@ -2149,6 +2129,7 @@ server <- function(input, output, session) {
             tags$ul(
               tags$li(paste0("Paramètres de recrutement ajustés : ", input$recrutement_ajuste)),
               tags$li(paste0("Coupe partielle récente : ", input$coupe_partielle)),
+              tags$li(paste0("Maladie corticale du hêtre : ", input$coupe_partielle)),
               tags$li(paste0("Module d'accroissement : ", module_acc_utilise)),
               tags$li(paste0("Module de mortalité : ", module_mort_utilise)),
               tags$li(paste0("Nombre d'années : ", input$annees_simulation)),
