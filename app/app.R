@@ -2129,7 +2129,7 @@ server <- function(input, output, session) {
             tags$ul(
               tags$li(paste0("Paramètres de recrutement ajustés : ", input$recrutement_ajuste)),
               tags$li(paste0("Coupe partielle récente : ", input$coupe_partielle)),
-              tags$li(paste0("Maladie corticale du hêtre : ", input$coupe_partielle)),
+              tags$li(paste0("Maladie corticale du hêtre : ", input$mch)),
               tags$li(paste0("Module d'accroissement : ", module_acc_utilise)),
               tags$li(paste0("Module de mortalité : ", module_mort_utilise)),
               tags$li(paste0("Nombre d'années : ", input$annees_simulation)),
@@ -2650,6 +2650,7 @@ server <- function(input, output, session) {
                                                       input$module_mortalite=="que"~"Power 2025",
                                                       .default="Power 2026"))),
         tags$li(paste0("Coupe partielle: ", ifelse(input$coupe_partielle == "oui", "Oui", "Non"))),
+        tags$li(paste0("MCH: ", ifelse(input$mch == "oui", "Oui", "Non"))),
         if (no_climate_data) {
           tags$li("Données climatiques: Non utilisées")
         } else {
