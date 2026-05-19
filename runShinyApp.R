@@ -183,13 +183,13 @@ if (length(packages_manquants) > 0) {
   # ========================================
   # Des packages sont manquants -> Lancer app_diagnostic.R
   # ========================================
-  
+
   log_cat("╔══════════════════════════════════════════════════════════════╗\n")
-  log_cat("║  PACKAGES MANQUANTS DÉTECTÉS                                 ║\n")
+  log_cat("║  PACKAGES MANQUANTS DÉTECTÉS                               ║\n")
   log_cat("╚══════════════════════════════════════════════════════════════╝\n\n")
-  
+
   log_cat("Packages manquants:", paste(packages_manquants, collapse = ", "), "\n\n")
-  
+
   # Sauvegarder l'état pour app_diagnostic.R
   status_file <- file.path(app_dir, "package_status.rds")
   saveRDS(
@@ -201,14 +201,14 @@ if (length(packages_manquants) > 0) {
     ),
     status_file
   )
-  
+
   # Lancer l'application de diagnostic
   diagnostic_app <- file.path(app_dir, "app_diagnostic.R")
-  
+
   if (file.exists(diagnostic_app)) {
     log_cat("Démarrage de l'application de diagnostic...\n")
     log_cat("(Interface pour installer les packages manquants)\n\n")
-    
+
     tryCatch({
       # Se déplacer dans le dossier app pour que l'app trouve package_status.rds
       old_wd <- getwd()
@@ -218,16 +218,16 @@ if (length(packages_manquants) > 0) {
     }, error = function(e) {
       log_cat("\n")
       log_cat("╔══════════════════════════════════════════════════════════════╗\n")
-      log_cat("║  ERREUR lors du lancement de l'app diagnostic               ║\n")
+      log_cat("║  ERREUR lors du lancement de l'app diagnostic           ║\n")
       log_cat("╚══════════════════════════════════════════════════════════════╝\n")
       log_cat("Erreur:", conditionMessage(e), "\n\n")
       log_cat("Installation manuelle requise. Ouvrez R/RStudio et exécutez:\n\n")
-      
+
       if (length(packages_manquants_cran) > 0) {
         log_cat("# Packages CRAN:\n")
         log_cat(paste0('install.packages(c("', paste(packages_manquants_cran, collapse = '", "'), '"))\n\n'))
       }
-      
+
       if (length(packages_manquants_github) > 0) {
         log_cat("# Packages GitHub:\n")
         log_cat('install.packages("remotes")\n')
@@ -235,7 +235,7 @@ if (length(packages_manquants) > 0) {
           log_cat(paste0('remotes::install_github("Modelisation-DRF/', pkg, '")\n'))
         }
       }
-      
+
       log_cat("\nAppuyez sur Entrée pour fermer...")
       invisible(readline())
       close(log_con)
@@ -247,12 +247,12 @@ if (length(packages_manquants) > 0) {
     log_cat("║  app_diagnostic.R introuvable                               ║\n")
     log_cat("╚══════════════════════════════════════════════════════════════╝\n\n")
     log_cat("Installation manuelle requise. Ouvrez R/RStudio et exécutez:\n\n")
-    
+
     if (length(packages_manquants_cran) > 0) {
       log_cat("# Packages CRAN:\n")
       log_cat(paste0('install.packages(c("', paste(packages_manquants_cran, collapse = '", "'), '"))\n\n'))
     }
-    
+
     if (length(packages_manquants_github) > 0) {
       log_cat("# Packages GitHub:\n")
       log_cat('install.packages("remotes")\n')
@@ -260,29 +260,29 @@ if (length(packages_manquants) > 0) {
         log_cat(paste0('remotes::install_github("Modelisation-DRF/', pkg, '")\n'))
       }
     }
-    
+
     log_cat("\nAppuyez sur Entrée pour fermer...")
     invisible(readline())
     close(log_con)
     q(save = "no")
   }
-  
+
 } else {
   # ========================================
   # Tous les packages sont présents -> Lancer app.R
   # ========================================
-  
+
   log_cat("╔══════════════════════════════════════════════════════════════╗\n")
   log_cat("║  ✓ Tous les packages sont installés                         ║\n")
   log_cat("╚══════════════════════════════════════════════════════════════╝\n\n")
-  
+
   main_app <- file.path(app_dir, "app.R")
-  
+
   if (file.exists(main_app)) {
     log_cat("Démarrage de l'application Artemis...\n")
     log_cat("L'application va s'ouvrir dans votre navigateur.\n")
     log_cat(paste0("Le log continuera dans app.R (", log_file, ")\n\n"))
-    
+
     tryCatch({
       # Utiliser runApp avec le chemin du dossier pour que Shiny trouve le dossier www
       shiny::runApp(app_dir, launch.browser = TRUE)
