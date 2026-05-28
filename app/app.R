@@ -1,9 +1,9 @@
 # app.R
-#source("dev_functions.R") -> tester fonctions d'autres packages dans le fichier correspondant ici, run la ligne
-#et le code du fichier, mettre en commentaire pour retourner sur les fonctions des packages
 
+# Chargement des library
 library(shiny)
 library(DT)
+library(bslib)
 library(Artemis2014)
 library(shinydashboard)
 library(shinyWidgets)
@@ -18,497 +18,107 @@ library(OutilsDRF)
 library(data.table)
 library(readxl)
 
+# Permettre le chargement de gros fichiers
 options(shiny.maxRequestSize = 500 * 1024^2)
 
-#DetectionContexte_________________________________________________________####
+# Detection Contexte
 # Détecter si on est dans RStudio (interactif) ou lancé en batch (VBS)
 # Cela permet de ne pas tuer la session R quand on est dans RStudio
 is_rstudio <- Sys.getenv("RSTUDIO") == "1"
 is_interactive_session <- interactive() && is_rstudio
 
-# Interface utilisateur
-ui <- dashboardPage(
-  skin = "blue",
+# Extraction information sur version du package Artemis
+version_artemis <- as.character(packageVersion("Artemis2014"))
+desc <- packageDescription("Artemis2014")
+annee <- format(as.Date(substr(desc$Packaged, 1, 10)), "%Y")
 
-  # Entête
-  dashboardHeader(
-    title = "Artemis-2014",
-    titleWidth = 250
+# Interface utilisateur
+ui <- fluidPage(
+  theme = bs_theme(version = 5),
+  # Importation du .css ministériel
+  tags$head(
+    tags$link(rel = "stylesheet", href = "theme-gouvernemental.css"),
   ),
 
-  # Menu latéral
-  dashboardSidebar(
+  # Header gouvernemental
+  tags$header(
+    div(
+      class = "container-fluid piv py-2",
+      role = "banner",
+      #style = "font-family: var(--qc-font-family-header);",
 
-      sidebarMenu(
-      id = "sidebarMenu",
-      menuItem("Données", tabName = "data", icon = icon("table")),
+      div(
+        class = "d-flex align-items-center",
+        tags$a(
+          href = "https://www.quebec.ca/",
+          target = "_blank",
 
-
-      menuItem("À propos", tabName = "about", icon = icon("info-circle")),
-      uiOutput("menu_resultats")
-    )
- ),
-
-
-
-  dashboardBody(
-      tags$head(
-      tags$style(HTML("
-      .box {border-radius: 5px;}
-      .small-box {border-radius: 5px;}
-      .btn {border-radius: 3px;}
-      .progress {height: 10px; margin-bottom: 15px;}
-      .content-wrapper {background-color: #f8f9fa;}
-      .nav-tabs-custom {box-shadow: none;}
-
-      details > summary {
-        list-style: revert;
-        display: list-item;
-        cursor: pointer;
-        font-weight: 600;
-        color: #2c3e50;
-      }
-
-     .reset-button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 1000;
-  background-color: #dc3545;
-  color: white;
-  border: none;
-  border-radius: 3px;
-  padding: 6px 12px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-.reset-button:hover {
-  background-color: #c82333;
-}
-
-
-
-
-
-      /* Amélioration de l'apparence des inputs file */
-      .form-control-file {
-        position: relative;
-        overflow: visible;
-        margin-bottom: 30px; /* Espace pour le message */
-      }
-
-      /* Style de la barre de progression */
-      .progress {
-        margin-top: 5px;
-        position: relative;
-        height: 20px !important; /* Hauteur augmentée */
-        clear: both;
-        overflow: visible !important; /* Permettre au texte de déborder */
-      }
-
-      /* Style du message \"Upload complete\" */
-      .progress-bar {
-        position: relative;
-        height: 20px;
-        line-height: 20px;
-      }
-
-      /* Message après la barre */
-      .progress-bar::after {
-        content: attr(aria-valuenow);
-        position: absolute;
-        right: 0;
-        bottom: -24px; /* Positionnement en dessous de la barre */
-        color: #4D90D6;
-        font-weight: bold;
-        white-space: nowrap;
-      }
-
-      /* Pour le message \"Upload complete\" */
-      .progress-bar[aria-valuenow=\"100%\"]::after {
-        content: \"Upload complete\";
-      }
-
-      /* Style pour le conteneur du fileInput */
-      .shiny-input-container {
-        margin-bottom: 25px;
-      }
-    ")),
-      tags$script(HTML("
-      $(document).ready(function() {
-        $('body').addClass('sidebar-collapse');
-      });
-    ")),
-      tags$script(HTML("
-      Shiny.addCustomMessageHandler('toggle_tbe', function(msg){
-      $('#enable_tbe').prop('disabled', msg.disable === true).prop('checked',false).trigger('change') ;
-      });
-      ")),
-
-    ),
-
-
-
-
-    tabItems(
-
-      tabItem(
-        tabName = "data",
-        fluidRow( #style = "margin-left: -6px; margin-right: -6px;",  # réduit l'espace global entre
-          column(
-          width = 4,
-          style = "padding-left: 2px; padding-right: 0px;",
-          box(
-            id = "import_box",
-            width = 12,
-            title = "Importation de données",
-            status = "primary",
-            solidHeader = TRUE,
-            collapsible = TRUE,
-
-
-            uiOutput("file_input_ui"),
-
-
-            uiOutput("validation_status"),
-
-
-            uiOutput("error_box"),
-
-
-            uiOutput("extraction_question"),
-
-            uiOutput("extraction_button"),
-
-            uiOutput("extraction_button_final"),
-
-
-          ),
-          box(
-            width = 12,
-            title = "Configuration de la simulation",
-            status = "primary",
-            solidHeader = TRUE,
-            collapsible = TRUE,
-            uiOutput("simulation_message")
-          )
-          ),
-
-          column(
-            width = 8,
-            style = "padding-left: 0px; padding-right: 2px;",
-          box(
-            width = 12,
-            title = "Données importées",
-            status = "primary",
-            solidHeader = TRUE,
-            DTOutput("contents"))
-          )
-
-        ),
-        div(style = "position: relative; height: 40px;",
-            actionButton("reset_button", "Réinitialiser", class = "reset-button", icon = icon("sync"))
-        ),
-      ),
-
-      tabItem(
-        tabName = "results",
-        fluidRow(
-          # Box pour les options de graphique
-          box(
-            width = 4,
-            title = "Options de visualisation",
-            status = "primary",
-            solidHeader = TRUE,
-
-            selectInput("espece", "Groupe d'espèces", choices = c("")),
-
-            # Sélection de la variable
-            selectInput("variable", "Choix de la variable",
-                        choices = c("Surface terrière marchande (m2/ha)"="ST_HA", "Volume marchand (m3/ha)"="Vol_HA", "Diamètre quadratique moyen"="DMQ", "Densité (nb/ha)" = "nbTi_HA"),
-                        selected = "ST_HA"),
-            pickerInput(
-              inputId = "placette",
-              label = "Choix des placettes",
-              choices = NULL,
-              selected = NULL,
-              multiple = TRUE,
-              options = list(
-                `actions-box` = TRUE,
-                `deselect-all-text` = "Tout supprimer",
-                `select-all-text` = "Tout sélectionner",
-                `none-selected-text` = "Rien de sélectionné"
-              )
-            ),
-
-
-            uiOutput("simulation_info")
-          ),
-
-
-
-
-          box(
-            width = 8,
-            title = "Visualisation des résultats",
-            status = "primary",
-            solidHeader = TRUE,
-            plotOutput("resultat_graphique", height = "500px")
+          tags$img(
+            src = "signature-PIV.svg",
+            height = "50px"
           )
         ),
-        div(style = "position: relative; height: 40px;",
-            actionButton("reset_button", "Réinitialiser", class = "reset-button", icon = icon("sync"))
-        ),
-
-
-        fluidRow(
-          style = "margin-top: -25px;",
-          box(
-            width = 4,
-            title = "Exportation des résultats",
-            status = "primary",
-            solidHeader = TRUE,
-
-            radioButtons("simplifier", "Toutes les années de simulation",
-                         choices = list("Oui" = FALSE, "Non" = TRUE),
-                         selected = FALSE,
-                         inline = TRUE),
-            selectInput("Sortie",
-                        label = "Choix de la sortie",
-                        choices = c("-- Sélectionner une option --" = "",
-                                    "Arbre" = "arbre",
-                                    "Placette" = "placette",
-                                    "À l'échelle du billon" = "echelle_billon"),
-                        selected = ""),
-            conditionalPanel(
-              condition = "input.Sortie == 'echelle_billon'",
-              selectInput("typeBillonnage", "Billonnage Feuillus durs (Pétro):",
-                          choices = list("DHP_Régionalisé" = "DHP", "DHP_Provincial" = "DHP2015")
-              )
-            ),
-
-            conditionalPanel(
-              condition = "input.Sortie == 'echelle_billon'",
-              h5("Billonnage Résineux", style = "font-weight: bold; margin-top: 15px;"),
-              div(
-                style = "margin-bottom: 10px;",
-                numericInput("dhs_input",
-                             label = "DHS (Diamètre à hauteur de souche):",
-                             value = 0.15,
-                             min = 0.01,
-                             max = 1.0,
-                             step = 0.01)
-              ),
-              div(
-                style = "background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 10px;",
-                h6("Grade 1", style = "color: #495057; font-weight: bold;"),
-                textInput("nom_grade1", "Nom du grade 1:", value = "sciage court"),
-                selectInput("long_grade1", "Longueur (pieds):",
-                            choices = c("Indéfini", "4", "8", "12"),
-                            selected = "8"),
-                numericInput("diam_grade1", "Diamètre au fin bout(cm):",
-                             value = 20, min = 0, max = 100, step = 0.1)
-              ),
-              uiOutput("add_grade2_button"),
-              uiOutput("grade2_section"),
-              uiOutput("add_grade3_button"),
-              uiOutput("grade3_section"),
-              div(
-                style = "margin-top: 15px; text-align: center;",
-                actionButton("calculer_billonnage",
-                             "Simuler le billonnage",
-                             style = "background-color: #3c8dbc; color: white; width: 100%;",
-                             icon = icon("calculator"))
-              )
-            ),
-            div(
-              style = "margin-top: 15px;",
-              downloadButton("download_resultats_custom", "Télécharger les résultats",
-                             style = "background-color: #3c8dbc; color: white; width: 100%;")
-            ),
-
-            div(
-              style = "margin-top: 10px; font-size: 0.9em; color: #6c757d; font-style: italic;",
-              "Si \"Non\" est sélectionné, seuls les résultats de la première et de la dernière année de la simulation seront exportés."
-            )
-          )
-        ),
-
-
-      ),
-
-
-
-      tabItem(
-        tabName = "about",
-        fluidRow(
-          column(
-            width = 10, offset = 1,
-            div(
-              class = "about-header text-center",
-              style = "margin-bottom: 30px; border-bottom: 3px solid #4D90D6; padding-bottom: 15px;",
-              h2("À Propos d'Artemis", style = "color: #4D90D6; font-weight: 700;"),
-              p(class = "lead", "Simulateur de croissance", style = "font-style: italic; color: #6c757d;")
-            )
-          )
-        ),
-
-        fluidRow(
-          column(
-            width = 10, offset = 1,
-            div(
-              class = "about-content",
-              style = "background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);",
-
-              # Section introduction
-              div(
-                class = "intro-section",
-                style = "margin-bottom: 30px;",
-                div(
-                  class = "row",
-                  div(
-                    class = "col-md-3 text-center",
-                    icon("tree", class = "fa-4x", style = "color: #4D90D6; margin-bottom: 15px;")
-                  ),
-                  div(
-                    class = "col-md-9",
-                    h3("Introduction", style = "color: #2c3e50; font-weight: 600; margin-bottom: 15px;"),
-                    p("Bienvenue dans l'application Artemis, un Simulateur de croissance à l'échelle de l'arbre pour les forêts du Québec. Cette application vous permet de réaliser des simulations basées sur vos données d'inventaire forestier.", style = "font-size: 16px; line-height: 1.6;"),
-                    p("", style = "font-size: 16px; line-height: 1.6;")
-                  )
-                )
-              ),
-
-              # Section documentation
-              div(
-                class = "documentation-section",
-                style = "margin-bottom: 30px; background-color: #f8f9fa; padding: 20px; border-radius: 8px;",
-                h3("Documentation", style = "color: #4D90D6; font-weight: 600; margin-bottom: 15px;"),
-                p("Pour vous aider à utiliser efficacement Artemis veuillez consulter la page Wiki de l'application:", style = "font-size: 16px;"),
-
-                strong(a("Aide application R Artémis", href="https://github.com/Modelisation-DRF/Artemis2014_Shiny/wiki",style = "font-size: 16px;")),
-                br(), br(),#####Ajout de sauts de ligne
-                p("Cette page contient des instructions détaillées sur la préparation des données et la configuration des simulations.", style = "font-size: 15px; color: #6c757d; font-style: italic;")
-              ),
-
-              # Section fichiers d'exemple
-              div(
-                class = "examples-section",
-                style = "margin-bottom: 30px;",
-                h3("Fichiers d'exemple", style = "color: #2c3e50; font-weight: 600; margin-bottom: 15px;"),
-                p("Pour vous familiariser avec la structure des fichiers d'Artemis, vous pouvez télécharger ces exemples:", style = "font-size: 16px;"),
-                div(
-                  class = "row",
-                  style = "margin-top: 20px;",
-                  div(
-                    class = "col-md-6",
-                    div(
-                      class = "example-card",
-                      style = "background-color: #f8f9fa; padding: 20px; border-radius: 8px; height: 100%; border-left: 4px solid #4D90D6;",
-                      div(class = "text-center", style = "margin-bottom: 15px;", icon("leaf", class = "fa-2x", style = "color: #4D90D6;")),
-                      h4("Données des arbres", style = "text-align: center; color: #2c3e50; margin-bottom: 15px;"),
-                      p("Exemple de fichier CSV avec les données des arbres nécessaires pour la simulation.", style = "text-align: center; font-size: 15px;"),
-                      div(
-                        class = "text-center",
-                        style = "margin-top: 15px;",
-                        downloadButton(
-                          "download_arbres",
-                          "Télécharger",
-                          style = "background-color: #4D90D6; color: white; border: none;"
-                        )
-                      )
-                    )
-                  ),
-                  div(
-                    class = "col-md-6",
-                    div(
-                      class = "example-card",
-                      style = "background-color: #f8f9fa; padding: 20px; border-radius: 8px; height: 100%; border-left: 4px solid #4D90D6;",
-                      div(class = "text-center", style = "margin-bottom: 15px;", icon("cloud-sun-rain", class = "fa-2x", style = "color: #4D90D6;")),
-                      h4("Données climatiques", style = "text-align: center; color: #2c3e50; margin-bottom: 15px;"),
-                      p("Exemples de fichiers CSV contenant les données climatiques pour les simulations.", style = "text-align: center; font-size: 15px;"),
-                      div(
-                        class = "row",
-                        style = "margin-top: 20px;",
-                        div(
-                          class = "col-sm-6",
-                          div(
-                            class = "text-center mb-2",
-                            downloadButton(
-                              "download_climat_annuel",
-                              "Climat annuel",
-                              style = "background-color: #4D90D6; color: white; border: none; width: 100%;"
-                            )
-                          )
-                        ),
-                        div(
-                          class = "col-sm-6",
-                          div(
-                            class = "text-center mb-2",
-                            downloadButton(
-                              "download_climat_mensuel",
-                              "Climat mensuel",
-                              style = "background-color: #4D90D6; color: white; border: none; width: 100%;"
-                            )
-                          )
-                        )
-                      )
-                    )
-                  )
-                )
-              ),
-
-
-
-
-              # Section contact
-              div(
-                class = "contact-section",
-                style = "background-color: #81B7F0; padding: 25px; border-radius: 8px;",
-                h3("Contactez-nous", style = "color: #2c3e50; font-weight: 600; margin-bottom: 15px;"),
-                div(
-                  class = "row",
-                  div(
-                    class = "col-md-6",
-                    div(
-                      style = "background-color: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);",
-                      div(class = "text-center", icon("envelope", class = "fa-2x", style = "color: #4D90D6; margin-bottom: 10px;")),
-                      h4("Email", style = "text-align: center; color: #2c3e50; margin-bottom: 10px;"),
-                      p("recherche.forestiere@mrnf.gouv.qc.ca", style = "text-align: center; font-size: 16px; font-weight: 500;")
-                    )
-                  ),
-                  div()
-                )
-              )
-            )
-          )
-        ),
-
-        # Pied de page
-        fluidRow(
-          column(
-            width = 10, offset = 1,
-            div(
-              class = "footer",
-              style = "margin-top: 30px; text-align: center; padding: 15px;",
-              div(
-                class = "footer-content",
-                style = "border-top: 1px solid #e0e0e0; padding-top: 15px;",
-                p("Artemis © 2025 ", style = "color: #78909c; font-size: 14px;"),
-                p("Version 5.0.0", style = "color: #90a4ae; font-size: 12px;")
-              )
-            )
-          )
+        p(
+          "Artemis‑2014",
+          class = "fs-3 text-white ms-3 header-title",
+          style = "font-family: var(--qc-font-family-header);"
         )
       )
+    )
+  ),
+  # Menu de navigation
+    div(
+      class = "headline pt-3",
+      div(class = "container-fluid",
 
+          div(class = "d-flex align-items-center",
+              uiOutput("nav_menu")
+          )
+      )
+    )
+  ,
 
+  # Contenu de la page
+  div(
+    class = "container-fluid mt-5",
+    # Gérer coté server
+    uiOutput("main_content")
+  ),
 
+  # Footer
+  div(
+    class = "container-fluid text-center py-3",
 
+    # Info version Artemis- Au dessus de la ligne grise
+    div(class = "d-flex justify-content-center gap-3 mb-1",
+        p(paste("Artemis ©", annee), class = "text-muted small mb-0"),
+        p(paste("Version", version_artemis), class = "text-muted small mb-0")
+    ),
 
+    # Ligne grise + reste du footer
+    div(class = "border-top pt-2",
 
+        div(class = "mt-0",
+            tags$a(
+              href = "https://www.quebec.ca/gouvernement/ministere/ressources-naturelles-forets",
+              target = "_blank",
+              tags$img(
+                src = "MRNF_couleur.svg",
+                height = "60px"
+              )
+            ),
+            div(class = "mt-2",
+                tags$a(
+                  paste0("© Gouvernement du Québec, ", format(Sys.Date(), "%Y")),
+                  href = "https://www.quebec.ca/droit-auteur",
+                  target = "_blank",
+                  class = "text-muted small"
+                )
+            )
+        )
     )
   )
+
 )
 
 
@@ -528,65 +138,280 @@ server <- function(input, output, session) {
     }
   })
 
-  rv <- reactiveValues(
-    data_valid = FALSE,
-    extraction_choice_made = FALSE,
-    extraction_completed = FALSE,
-    climat_annuel = NULL,
-    climat_mensuel = NULL,
-    extraction_option = NULL,
-    extraction_horizon = NULL,
-    age_moy_valid = TRUE,
-    mode_visualisation = FALSE,
-    resultats_simulation = NULL,
-    placette = NULL,
-    processed_Billonage = NULL,
-    processed_Simul = NULL,
-    listeEspece = NULL,
-    simulation_terminee = FALSE,
-    show_grade2 = FALSE,
-    show_grade3 = FALSE
+  # Page à l'ouverture (défaut)
+  current_tab <- reactiveVal("donnees")
 
+  # Activation de la page cliquée
+  observeEvent(input$tab_accueil, {
+    current_tab("accueil")
+  })
+
+  observeEvent(input$tab_donnees, {
+    current_tab("donnees")
+  })
+
+  # Chargement dynamique du menu de navigation
+  output$nav_menu <- renderUI({
+    current <- current_tab()
+    div(class = "d-flex ms-2 align-items-center",
+
+        actionLink(
+          "tab_accueil", "Accueil",
+          class = "text-white px-2 fs-2",
+          style = paste0(
+            "text-decoration:none; padding-bottom:10px;",
+            if (current == "accueil")
+              "border-bottom:4px solid lightgray;" else ""
+          )
+        ),
+
+        actionLink(
+          "tab_donnees", "Données",
+          class = "text-white px-2 fs-2",
+          style = paste0(
+            "text-decoration:none; padding-bottom:10px;",
+            if (current == "donnees")
+              "border-bottom:4px solid lightgray;" else ""
+          )
+        )
+    )
+  })
+
+  # Chargement dynamique du contenu des pages
+  output$main_content <- renderUI({
+    # Page Accueil
+    if (current_tab() == "accueil") {
+      div(
+        div(
+          h1("Accueil"),
+          p("Bienvenue dans l'application Artemis, un Simulateur de croissance à l'échelle de l'arbre pour les forêts du Québec. Cette application vous permet de réaliser des simulations basées sur vos données d'inventaire forestier.")
+        ),
+
+        div(
+          class = "mt-4",
+          h3("Documentation", class = "mb-3"),
+            p("Pour vous aider à utiliser efficacement Artemis veuillez consulter la page Wiki de l'application: ",
+            tags$a(
+              "Aide application R Artémis",
+              href = "https://github.com/Modelisation-DRF/Artemis2014_Shiny/wiki",
+              target = "_blank",
+              class = "fw-bold"
+            )),
+
+            p("Cette page contient des instructions détaillées sur la préparation des données et la configuration des simulations.",
+              class = "text-muted fst-italic"
+            )
+          ),
+
+        # Fichiers d'exemple
+        tags$div(
+          class = "mb-4",
+          tags$h3("Fichiers d'exemple", class = "mb-3"),
+          tags$p("Pour vous familiariser avec la structure des fichiers d'Artemis, vous pouvez télécharger ces exemples:"),
+
+          tags$div(class = "row mt-4",
+
+            # Données arbres
+            tags$div(
+              class = "col-md-6",
+              tags$div(
+                class = "bg-light p-4 rounded h-100 border-start border-primary border-4",
+                tags$div(class = "text-center mb-3", icon("tree",class = "text-primary")),
+                tags$h4("Données des arbres", class = "text-center mb-3"),
+                tags$p("Exemple de fichier CSV avec les données des arbres nécessaires pour la simulation.", class = "text-center"),
+                tags$div(
+                  class = "text-center mt-3",
+                  downloadButton("download_arbres", "Télécharger", class = "btn btn-primary")
+                )
+              )
+            ),
+
+            # Données climatiques
+            tags$div(
+              class = "col-md-6",
+              tags$div(
+                class = "bg-light p-4 rounded h-100 border-start border-primary border-4",
+                tags$div(class = "text-center mb-3", icon("cloud-sun-rain", class = "text-primary")),
+                tags$h4("Données climatiques", class = "text-center mb-3"),
+                tags$p("Exemples de fichiers CSV contenant les données climatiques pour les simulations.", class = "text-center"),
+                tags$div(
+                  class = "d-flex justify-content-center gap-2 mt-3",
+                  downloadButton("download_climat_annuel", "Climat annuel", class = "btn btn-primary"),
+                  downloadButton("download_climat_mensuel", "Climat mensuel", class = "btn btn-primary")
+                )
+              )
+            )
+          )
+        ),
+        # Section contact
+        div(
+          class = "mt-4",
+          h3(
+            "Contactez-nous",
+            class = "mb-3",
+          ),
+          p("Pour toute question ou demande d'information, vous pouvez nous contacter par courriel:",
+
+            tags$a(
+              "recherche.forestiere@mrnf.gouv.qc.ca",
+              href = "mailto:recherche.forestiere@mrnf.gouv.qc.ca",
+              class = "fw-bold"
+            )
+          )
+        )
+      )
+
+    # Page Données
+    } else if (current_tab() == "donnees") {
+
+      div(class = "container-fluid px-0 mt-2",
+        div(class = "row g-2",
+
+            # Colonne de gauche (1/3)
+            div(class = "col-md-4",
+
+                # Importations des données
+                div(class = "card mb-3",
+                    div(
+                      class = "card-header bg-secondary text-white d-flex justify-content-between align-items-center",
+                      span("Importation de données"),
+
+                      tags$a(
+                        href = "#collapse_import",
+                        `data-bs-toggle` = "collapse",
+                        role = "button",
+                        icon("chevron-down",class="text-white")
+                      )
+                    ),
+
+                    div(
+                      id = "collapse_import",
+                      class = "collapse show",
+                      div(class = "card-body",
+                          p("Choisir un fichier CSV"),
+                          fileInput("file", NULL, buttonLabel = "Parcourir", placeholder = " - ")
+                      )
+                    )
+                ),
+
+                # Configuration
+                div(class = "card",
+                    div(
+                      class = "card-header bg-secondary text-white d-flex justify-content-between align-items-center",
+                      span("Configuration de la simulation"),
+                      tags$a(
+                        href = "#collapse_config",
+                        `data-bs-toggle` = "collapse",
+                        role = "button",
+                        icon("chevron-down",class="text-white")
+                      )
+                    ),
+
+                    div(
+                      id = "collapse_config",
+                      class = "collapse show",
+
+                      div(class = "card-body",
+                          p("Paramètres à venir...")
+                      )
+                    )
+                )
+            ),
+
+            # colonne de droite (2/3)
+            div(class = "col-md-8",
+                # Données importées
+                div(class = "card",
+                    div(
+                      class = "card-header bg-secondary text-white d-flex justify-content-between align-items-center",
+                      span("Données importées"),
+                      tags$a(
+                        href = "#collapse_data",
+                        `data-bs-toggle` = "collapse",
+                        role = "button",
+                        icon("chevron-down",class="text-white")
+                      )
+                    ),
+
+                    div(
+                      id = "collapse_data",
+                      class = "collapse show",
+
+                      div(class = "card-body py-0 fs-5",
+                          DTOutput("contents")
+                      )
+                    )
+                )
+            ),
+
+            # Bouton de réinitialisation
+            div(
+              class = "d-flex justify-content-end mt-2",
+
+              actionButton(
+                "reset_button",
+                "Réinitialiser",
+                class = "btn btn-danger",
+                icon = icon("sync")
+              )
+            )
+        )
+      )
+
+    }
+  })
+
+  # Section Accueil
+  #------------------------------------------------------
+  output$download_arbres<- downloadHandler(
+    filename = function() {
+      "Donnees_Exemple_Artemis.csv"
+    },
+    content = function(file) {
+      file.copy("data/Donnees_Exemple.csv", file)
+    }
   )
 
-  observe({
-    query <- parseQueryString(session$clientData$url_search)
-
-    if ("dev" %in% names(query) && file.exists("cached_simulation_results.rds")) {
-      # Load cached simulation results
-      rv$resultats_simulation <- readRDS("cached_simulation_results.rds")
-      rv$simulation_terminee <- TRUE
-
-      # Switch to results tab immediately
-      updateTabItems(session, "sidebarMenu", "results")
-
-      # Pre-select your working values for the export box
-      updateRadioButtons(session, "simplifier", selected = FALSE)
-      updateSelectInput(session, "Sortie", selected = "echelle_billon")
-      updateSelectInput(session, "typeBillonnage", selected = "DHP")
-
-      showNotification("DEV MODE: Loaded cached simulation results",
-                       type = "message", duration = 3)
+  output$download_climat_annuel<- downloadHandler(
+    filename = function() {
+      "Donnees_ClimAn_Exemple_Artemis.csv"
+    },
+    content = function(file) {
+      file.copy("data/ClimAn_Exemple.csv", file)
     }
-  })
+  )
 
-  output$file_input_ui <- renderUI({
-
-    fileInput(paste0("file", ifelse(is.null(rv$fileInputId), "", rv$fileInputId)),
-              "Choisir un fichier CSV", accept = c("text/csv", "text/comma-separated-values,text/plain", ".csv"))
-  })
-
-  output$menu_resultats <- renderUI({
-    if (rv$simulation_terminee) {
-
-      menuItem("Résultats", tabName = "results", icon = icon("chart-line"))
-    } else {
-      NULL
+  output$download_climat_mensuel<- downloadHandler(
+    filename = function() {
+      "Donnees_ClimMois_Exemple_Artemis.csv"
+    },
+    content = function(file) {
+      file.copy("data/ClimMois_Exemple.csv", file)
     }
+  )
+
+  #Section Données
+  #-------------------------------------------------------
+  data_input <- reactive({
+    req(input$file)
+    read.csv(input$file$datapath)
   })
 
-
-
+  output$contents <- renderDT({
+    req(data())
+    datatable(data(),
+              options = list(
+                pageLength = 10,
+                scrollX = TRUE,
+                dom = 'Bfrtip',
+                buttons = c('copy', 'csv', 'excel'),
+                language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/French.json')
+              ),
+              rownames = FALSE,
+              filter = 'top',
+              class = 'cell-border stripe compact small fs-5'
+    )
+  })
 
   # Fonction réactive pour lire le fichier CSV
   data <- reactive({
@@ -623,2230 +448,28 @@ server <- function(input, output, session) {
     return(df)
   })
 
+  rv <- reactiveValues(
+    data_valid = FALSE,
+    extraction_choice_made = FALSE,
+    extraction_completed = FALSE,
+    climat_annuel = NULL,
+    climat_mensuel = NULL,
+    extraction_option = NULL,
+    extraction_horizon = NULL,
+    age_moy_valid = TRUE,
+    mode_visualisation = FALSE,
+    resultats_simulation = NULL,
+    placette = NULL,
+    processed_Billonage = NULL,
+    processed_Simul = NULL,
+    listeEspece = NULL,
+    simulation_terminee = FALSE,
+    show_grade2 = FALSE,
+    show_grade3 = FALSE
 
-
-  # Fonction réactive pour valider les données
-  validation_errors <- reactive({
-    req(data())
-
-    # Appliquer les deux fonctions de validation existantes
-    erreurs1 <- valide_data(data(), "ORI", "ORI")
-    erreurs2 <- trouver_noms_absents(data(), "ORI", "ORI")
-
-    # Combiner toutes les erreurs
-    all_errors <- c(erreurs1, erreurs2)
-
-
-    rv$age_moy_valid <- valide_Age_moy(data(), "ORI", "ORI")
-
-    rv$data_valid <- length(all_errors) == 0
-
-    return(all_errors)
-  })
-
-  # fonction réactive pour valider les champs optionels
-  valider_champ_optionel <- reactive({
-    req(data())
-
-    # Appliquer les fonctions
-   champ_optionel_absent <- trouver_noms_optionels(data())
-
-
-
-    return(champ_optionel_absent)
-  })
-
-
-  # Afficher le tableau de données
-  output$contents <- renderDT({
-    req(data())
-    datatable(data(),
-              options = list(
-                pageLength = 10,
-                scrollX = TRUE,
-                dom = 'Bfrtip',
-                buttons = c('copy', 'csv', 'excel')
-              ),
-              rownames = FALSE,
-              filter = 'top',
-              class = 'cell-border stripe')
-  })
-
-  # Indicateur visuel de validation
-  output$validation_status <- renderUI({
-    req(validation_errors())
-    errors <- validation_errors()
-    req(valider_champ_optionel())
-    champ_optionel_absent <- valider_champ_optionel()
-
-    result_div <- div(style = "margin-top: 15px; margin-bottom: 15px;")
-
-    if (length(errors) > 0) {
-      result_div <- tagAppendChild(result_div,
-                                   infoBox(
-                                     width = 12,
-                                     title = "Statut",
-                                     value = "Validation échouée",
-                                     subtitle = paste(length(errors), "erreur(s) détectée(s)"),
-                                     icon = icon("times-circle"),
-                                     color = "red",
-                                     fill = TRUE
-                                   )
-      )
-    } else {
-      result_div <- tagAppendChild(result_div,
-                                   infoBox(
-                                     width = 12,
-                                     title = "Statut",
-                                     value = "Validation réussie",
-                                     subtitle = "Les données sont valides",
-                                     icon = icon("check-circle"),
-                                     color = "blue",
-                                     fill = TRUE
-                                   )
-      )
-
-      # Ajouter l'avertissement si l'âge moyen n'est pas valide
-      if (!rv$age_moy_valid) {
-        result_div <- tagAppendChild(result_div,
-                                     div(
-                                       style = "background-color: #fff3cd; color: #856404; padding: 15px; border: 1px solid #ffeeba; border-radius: 5px; margin-top: 10px;",
-                                       icon("exclamation-triangle"),
-                                       span(style = "font-weight: bold; margin-left: 5px;", "Attention:"),
-                                       " La colonne Age_moy est manquante ou contient des erreurs. Vous ne pouvez pas utiliser les données climatiques dans votre simulation."
-                                     )
-        )
-      }
-
-    }
-    # Ajouter la liste des champs optionels absent si c'est le cas
-    if(length(champ_optionel_absent) > 0){
-      result_div <- tagAppendChild(result_div, div(
-        style = "padding-left: 20px; max-height: 200px; overflow-y: auto;",
-        h5("Champ optionel absent:"),
-        tags$ul(
-          class = "error-list",
-          lapply(champ_optionel_absent, tags$li)
-        )
-      ))
-    }
-
-    return(result_div)
-  })
-
-
-
-  # Afficher les erreurs ou rien
-  output$error_box <- renderUI({
-    req(validation_errors())
-    errors <- validation_errors()
-
-    if (length(errors) > 0) {
-      div(
-        style = "background-color: #f8d7da; color: #721c24; padding: 15px; border: 1px solid #f5c6cb; border-radius: 5px; margin-top: 10px; max-height: 200px; overflow-y: auto;",
-        h4("Erreurs détectées:"),
-        tags$ul(
-          lapply(errors, function(error) {
-            tags$li(error)
-          })
-        )
-      )
-    }
-
-  })
-
-
-
-  # Modifier la question d'extraction pour inclure les trois options
-  observe({
-    # Si données valides et choix d'extraction pas encore fait
-    if (rv$data_valid && !rv$extraction_choice_made && !rv$extraction_completed) {
-
-      rv$placette <- unique(data()$PlacetteID)
-
-      output$extraction_question <- renderUI({
-        div(
-          style = "margin-top: 20px; padding: 15px; background-color: #e8f4f8; border-radius: 5px; border: 1px solid #81B7F0;",
-          h4("Données climatiques"),
-
-          # Si l'âge moyen n'est pas valide, on désactive les deux premières options
-          if (!rv$age_moy_valid) {
-            tagList(
-              radioButtons("extraction_choice", "",
-                           choices = list(
-                             "Simuler les données climatiques" = "extract",
-                             "Fournir les données climatiques" = "upload",
-                             "Simulation sans données climatiques" = "none"
-                           ),
-                           selected = "none"),
-              tags$script(HTML("
-              $(document).ready(function() {
-                $('input[name=\"extraction_choice\"][value=\"extract\"]').prop('disabled', true);
-                $('input[name=\"extraction_choice\"][value=\"upload\"]').prop('disabled', true);
-              });
-            ")),
-              tags$div(
-                style = "color: #d9534f; font-style: italic; font-size: 0.9em; margin-top: 5px; margin-bottom: 10px;",
-                icon("exclamation-triangle"),
-                "La colonne Age_moy est manquante ou contient des erreurs. Vous ne pouvez pas utiliser les données climatiques dans votre simulation."
-              )
-            )
-          }
-          else if (length(rv$placette) > 100){
-            tagList(
-              radioButtons("extraction_choice", "",
-                           choices = list(
-                             "Simuler les données climatiques" = "extract",
-                             "Fournir les données climatiques" = "upload",
-                             "Simulation sans données climatiques" = "none"
-                           ),
-                           selected = "none"),
-              tags$script(HTML("
-              $(document).ready(function() {
-                $('input[name=\"extraction_choice\"][value=\"extract\"]').prop('disabled', true);
-              });
-            ")),
-              tags$div(
-                style = "color: #d9534f; font-style: italic; font-size: 0.9em; margin-top: 5px; margin-bottom: 10px;",
-                icon("exclamation-triangle"),
-                "Nombre de placettes trop grand pour simuler les données climatiques. Ne doit pas dépasser 100."
-              )
-            )
-          }
-
-          else {
-            radioButtons("extraction_choice", "",
-                         choices = list(
-                           "Simuler les données climatiques" = "extract",
-                           "Fournir les données climatiques" = "upload",
-                           "Simulation sans données climatiques" = "none"
-                         ),
-                         selected = character(0))
-          },
-
-          # Ajout du bouton Valider
-          div(
-            style = "margin-top: 15px; text-align: center;",
-            actionButton("validate_extraction_choice", "Suivant",
-                         style = "background-color: #4D90D6; color: white; width: 100%;")
-          )
-        )
-      })
-    }
-  })
-
-
-
-
-
-  # Observer qui réagit au clic sur le bouton Valider - corrigé
-  observeEvent(input$validate_extraction_choice, {
-    # Vérifier si une option a été sélectionnée
-    req(input$extraction_choice)
-
-    if (!rv$age_moy_valid && input$extraction_choice != "none") {
-
-      showNotification(
-        "La colonne Age_moy est manquante ou contient des erreurs. Vous ne pouvez pas utiliser les données climatiques dans votre simulation.", type = "error",
-        duration = 5
-      )
-      return()
-    }
-
-
-
-    rv$extraction_choice_made <- TRUE
-
-    # Stocker explicitement le choix d'extraction dans la variable réactive
-    rv$extraction_option <- input$extraction_choice
-
-    # Faire disparaître la question d'extraction
-    output$extraction_question <- renderUI({})
-
-    if (input$extraction_choice == "extract") {
-
-      # Afficher les paramètres de configuration d'extraction
-      output$simulation_message <- renderUI({
-        div(
-          style = "margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6;",
-          #h4("Configuration de la simulation", style = "margin-top: 0;"),
-
-          # Année de départ - Paramètre non paramétrable
-          div(style = "display: none;",
-          numericInput(
-            "annee_depart",
-            "Année de départ :",
-            value = as.numeric(format(Sys.Date(), "%Y")),
-            min = 2000,
-            step = 1
-          )),
-
-          # Horizon
-          numericInput(
-            "horizon",
-            "Nombre d'années de simulation (multiple de 10) :",
-            value = 10,
-            min = 10,
-            step = 10
-          ),
-
-          # RCP
-          radioButtons(
-            "rcp",
-            "Scénario RCP :",
-            choices = list("RCP 4.5" = "RCP45", "RCP 8.5" = "RCP85"),
-            selected = "RCP45"
-          ),
-
-          # Bouton d'extraction (apparaît seulement quand tous les paramètres sont définis)
-          uiOutput("extraction_button_final")
-        )
-      })
-
-      # Effacer le message de simulation
-      #output$simulation_message <- renderUI({})
-
-    } else if (input$extraction_choice == "upload") {
-      # Afficher les options pour téléverser ses propres fichiers climatiques
-      output$extraction_button <- renderUI({
-        div(
-          style = "margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6;",
-          h4("Importer des données climatiques", style = "margin-top: 0;"),
-
-          # File input pour le climat annuel
-          fileInput("climat_annuel_file", "Fichier climat annuel (CSV)",
-                    accept = c(
-                      "text/csv",
-                      "text/comma-separated-values,text/plain",
-                      ".csv")
-          ),
-
-          # File input pour le climat mensuel
-          fileInput("climat_mensuel_file", "Fichier climat mensuel (CSV)",
-                    accept = c(
-                      "text/csv",
-                      "text/comma-separated-values,text/plain",
-                      ".csv")
-          ),
-
-          # RCP
-          radioButtons(
-            "rcp",
-            "Scénario RCP :",
-            choices = list("RCP 4.5" = "RCP45", "RCP 8.5" = "RCP85"),
-            selected = "RCP45"
-          ),
-
-          # Bouton pour valider l'importation
-          div(
-            style = "margin-top: 15px;",
-            actionBttn(
-              "validate_climat_files",
-              "Valider les fichiers climatiques",
-              #style = "gradient",
-              #color = "royal",
-              type="primary",
-              icon = icon("check"),
-              block = TRUE
-            )
-          )
-        )
-      })
-
-      # Effacer le bouton d'extraction final
-      output$extraction_button_final <- renderUI({})
-
-      # Effacer le message de simulation pour le moment
-      output$simulation_message <- renderUI({})
-
-    } else if (input$extraction_choice == "none") {
-      # Ne pas utiliser de données climatiques
-      # Effacer le bouton d'extraction
-      output$extraction_button <- renderUI({})
-      output$extraction_button_final <- renderUI({})
-
-      # Définir les variables climatiques comme NULL pour indiquer qu'elles ne sont pas utilisées
-      rv$climat_annuel <- NULL
-      rv$climat_mensuel <- NULL
-      rv$max_annees_simulation <- NA
-
-      # Mettre à jour l'état indiquant que le processus est terminé
-      rv$extraction_completed <- TRUE
-
-      simulation_ui()
-
-    }
-
-
-    #output$validation_status <- renderUI({})
-    #output$file_input_ui <- renderUI({})
-
-  })
-
-
-
-
-
-
-
-  # Ajouter un nouvel observateur pour la validation des fichiers climatiques importés
-  observeEvent(input$validate_climat_files, {
-    # Vérifier que les deux fichiers ont été téléversés
-    if (is.null(input$climat_annuel_file) || is.null(input$climat_mensuel_file)) {
-      showNotification(
-        "Veuillez téléverser les deux fichiers climatiques (annuel et mensuel).",
-        type = "error",
-        duration = 5
-      )
-      return()
-    }
-
-    # Lire les fichiers climatiques téléversés
-    tryCatch({
-      # Lire le fichier climat annuel
-      climat_annuel <- read.csv(input$climat_annuel_file$datapath,
-                                header = TRUE,
-                                sep = ";")
-
-      # Lire le fichier climat mensuel
-      climat_mensuel <- read.csv(input$climat_mensuel_file$datapath,
-                                 header = TRUE,
-                                 sep = ";")
-
-      # Vérifier les fichiers avec les fonctions du package Artemis
-      erreurs_annuel <- verifier_colonnes_ClimAn(climat_annuel)
-      erreurs_annuel <- c(erreurs_annuel, validation_annuel(data(), climat_annuel,input$rcp))
-      erreurs_mensuel <- verifier_colonnes_Clim(climat_mensuel)
-      erreurs_mensuel <- c(erreurs_mensuel, validation_mensuel(data(), climat_mensuel,input$rcp))
-      erreurs_mensuel <- c(erreurs_mensuel, valider_Mois(climat_mensuel,input$rcp) )
-
-
-      # Valider que le fichier annuel et mensuel sont cohérents
-      erreurs_comparaison <- comparer_annee_scenario(data(), climat_annuel,climat_mensuel,input$rcp)
-      #erreurs_comparaison <- NULL
-
-      # Vérifier s'il y a des erreurs
-      if (length(erreurs_annuel) > 0 || length(erreurs_mensuel) > 0 || length(erreurs_comparaison) > 0 ) {
-        showModal(modalDialog(
-          title = "Erreurs dans les fichiers climatiques",
-          div(
-            style = "max-height: 400px; overflow-y: auto;",
-
-            # Section pour les erreurs du fichier climat annuel
-            if (length(erreurs_annuel) > 0) {
-              div(
-                style = "background-color: #f8d7da; color: #721c24; padding: 15px; border: 1px solid #f5c6cb; border-radius: 5px; margin-bottom: 15px;",
-                h4(paste0("Erreurs dans le fichier climat annuel (", input$climat_annuel_file$name, "):"),
-                   style = "border-bottom: 1px solid #721c24; padding-bottom: 5px;"),
-                tags$ul(
-                  lapply(erreurs_annuel, function(error) {
-                    tags$li(error)
-                  })
-                )
-              )
-            },
-
-            # Section pour les erreurs du fichier climat mensuel
-            if (length(erreurs_mensuel) > 0) {
-              div(
-                style = "background-color: #f8d7da; color: #721c24; padding: 15px; border: 1px solid #f5c6cb; border-radius: 5px; margin-bottom: 15px;",
-                h4(paste0("Erreurs dans le fichier climat mensuel (", input$climat_mensuel_file$name, "):"),
-                   style = "border-bottom: 1px solid #721c24; padding-bottom: 5px;"),
-                tags$ul(
-                  lapply(erreurs_mensuel, function(error) {
-                    tags$li(error)
-                  })
-                )
-              )
-            },
-            if (length(erreurs_comparaison) > 0 ){
-              div(
-                style = "background-color: #fff3cd; color: #856404; padding: 15px; border: 1px solid #ffeeba; border-radius: 5px;",
-                h4(paste0("Incohérence dans les fichiers climatiques: ", input$climat_annuel_file$name, " et ", input$climat_mensuel_file$name),
-                   style = "border-bottom: 1px solid #856404; padding-bottom: 5px;"),
-                tags$ul(
-                  lapply(erreurs_comparaison, function(error) {
-                    tags$li(error)
-                  })
-                )
-              )
-            }
-          ),
-          footer = tagList(
-            div(
-              style = "text-align: center; width: 100%;",
-              p("Veuillez corriger les erreurs et réimporter les fichiers.",
-                style = "font-style: italic; margin-bottom: 10px;"),
-              modalButton("Fermer")
-            )
-          ),
-          size = "l",
-          easyClose = TRUE
-        ))
-        return()
-      } else {
-        # Si aucune erreur, stocker les données dans les variables réactives
-        rv$climat_annuel <- climat_annuel
-        rv$climat_mensuel <- climat_mensuel
-        rv$max_annees_simulation <- floor(extraire_nb_annee(climat_annuel,AnneeDep=as.numeric(format(Sys.Date(), "%Y")))/10)*10
-
-        # Afficher une notification de succès
-        showNotification(
-          "Fichiers climatiques validés et importés avec succès !",
-          type = "message",
-          duration = 5
-        )
-
-        # Mettre à jour l'état
-        rv$extraction_completed <- TRUE
-
-        simulation_ui()
-      }
-    }, error = function(e) {
-      # Afficher une notification d'erreur
-      showNotification(
-        paste("Erreur lors de l'importation des fichiers climatiques:", e$message),
-        type = "error",
-        duration = 10
-      )
-    })
-  })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  # Action pour l'extraction climatique
-  observeEvent(input$extract_climate, {
-    # Vérifier les paramètres
-    req(input$annee_depart, input$horizon, input$rcp)
-
-    # S'assurer que l'horizon est d'au moins 10 ans
-    if (input$horizon < 10) {
-      showNotification(
-        "L'horizon doit être d'au moins 10 ans.",
-        type = "error",
-        duration = 5
-      )
-      return()
-    }
-
-    # Récupérer les paramètres pour le résumé
-    annee_depart <- input$annee_depart
-    horizon <- input$horizon
-    annee_fin <- annee_depart + horizon
-    rcp <- input$rcp
-
-    showModal(modalDialog(
-      title = "Simulation en cours",
-      div(
-        style = "text-align: center;",
-        img(src = "https://i.gifer.com/origin/b4/b4d657e7ef262b88eb5f7ac021edda87.gif",
-            height = "100px",
-            style = "margin-bottom: 20px;"),
-        p("Simulation des données climatiques en cours..."),
-        p(style = "font-size: 0.9em; color: #6c757d;",
-          paste0("Paramètres: Année de départ = ", annee_depart,
-                 ", Horizon = ", horizon, " ans (jusqu'à ", annee_fin,
-                 "), Scénario = ", rcp))
-      ),
-      footer = NULL,
-      easyClose = FALSE
-    ))
-
-    # Appeler la fonction GenereClimat
-    result <- tryCatch({
-
-
-      GenereClimat(Data_Ori= data() ,AnneeDep = annee_depart,AnneeFin = annee_fin,  RCP = rcp)
-    }, error = function(e) {
-      showNotification(paste("Erreur lors de la simulation:", e$message), type = "error", duration = 10)
-      return(NULL)
-    })
-
-    # Stocker les résultats dans les variables réactives
-    if (!is.null(result) && length(result) == 2) {
-      rv$climat_annuel <- result[[1]]
-      rv$climat_mensuel <- result[[2]]
-      rv$extraction_horizon <- horizon/10  # Stocker l'horizon utilisé pour l'extraction
-    }
-
-
-
-    # Fermer la boîte de dialogue
-    removeModal()
-
-    # Afficher un résultat d'extraction avec les paramètres utilisés
-    showModal(modalDialog(
-      title = "Simulation terminée",
-      div(
-        style = "text-align: center;",
-        icon("check-circle", class = "fa-3x", style = "color: #4D90D6; margin-bottom: 15px;"),
-        h4("Les données climatiques ont été extraites avec succès !"),
-        p("Vous pouvez télécharger les fichiers ci-dessous :"),
-        div(
-          style = "margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px; text-align: left;",
-          h5("Paramètres utilisés :"),
-          tags$ul(
-            tags$li(paste0("Année de départ : ", input$annee_depart)),
-            tags$li(paste0("Horizon : ", input$horizon)),
-            tags$li(paste0("Scénario climatique : ", input$rcp))
-          )
-        ),
-        div(
-          style = "margin-top: 20px; display: flex; justify-content: space-around;",
-          downloadButton("download_annuel", "Télécharger climat annuel",
-                         style = "background-color: #4D90D6; color: white;"),
-          downloadButton("download_mensuel", "Télécharger climat mensuel",
-                         style = "background-color: #4D90D6; color: white;")
-        )
-      ),
-      footer = actionButton("close_extraction", "Suivant",
-                            style = "background-color: #007bff; color: white;"),
-      easyClose = FALSE,      # Changement ici: passer à FALSE
-      backdrop = "static"     # Ajout: empêche la fermeture en cliquant sur l'arrière-plan
-    ))
-
-
-
-  })
-
-
-  output$download_annuel <- downloadHandler(
-    filename = function() {
-      paste("climat_annuel_", input$annee_depart, "_", input$annee_depart + input$horizon - 1, "_", input$rcp, ".csv", sep = "")
-    },
-    content = function(file) {
-
-      write.table(rv$climat_annuel, file, sep = ";", row.names = FALSE)
-    }
   )
-
-  output$download_mensuel <- downloadHandler(
-    filename = function() {
-      paste("climat_mensuel_", input$annee_depart, "_", input$annee_depart + input$horizon - 1, "_", input$rcp, ".csv", sep = "")
-    },
-    content = function(file) {
-      write.table(rv$climat_mensuel, file, sep = ";", row.names = FALSE)
-    }
-  )
-
-  # Rendre le bouton d'extraction final une fois que tous les paramètres sont définis
-  output$extraction_button_final <- renderUI({
-    req(input$annee_depart, input$horizon, input$rcp)
-
-    # Vérifier que l'horizon est au moins de 2
-    if (input$horizon < 10|input$horizon %% 10 != 0) {
-      div(
-        style = "color: #dc3545; margin-top: 15px;",
-        icon("exclamation-triangle"),
-        "L'horizon doit être un multiple de 10 d'au moins 10 ans."
-      )
-    } else {
-      # Tout est valide, afficher le bouton
-      div(
-        style = "margin-top: 15px;",
-        actionBttn(
-          "extract_climate",
-          "Simuler les données climatiques",
-          #style = "gradient",
-          type="primary",
-          #color = "royal",
-          icon = icon("cloud-download-alt"),
-          block = TRUE
-        ),
-        p(style = "margin-top: 8px; font-size: 0.85em; color: #666; text-align: center;",
-          paste0("Période: ", input$annee_depart, " - ", input$annee_depart + input$horizon,
-                 " | Scénario: ", ifelse(input$rcp == "RCP45", "RCP 4.5", "RCP 8.5"))
-        )
-      )
-    }
-  })
-
-  # Fermer la boîte de dialogue d'extraction
-  observeEvent(input$close_extraction, {
-    removeModal()
-
-    # Effacer les paramètres et le bouton d'extraction
-    output$extraction_button <- renderUI({})
-    output$extraction_button_final <- renderUI({})
-
-    simulation_ui()
-
-    # Mettre à jour l'état
-    rv$extraction_completed <- TRUE
-  })
-
-
-
-
-  # Observateur pour le choix de simulation - avec désactivation des options supplémentaires
-      simulation_ui <- function()
-      {
-      # Rediriger vers le panel de simulation avec les nouvelles options
-      output$simulation_message <- renderUI({
-        # Variable pour savoir si l'option "none" a été choisie
-        no_climate_data <- !is.null(rv$extraction_option) && rv$extraction_option == "none"
-
-        extracted_climate_data <- !is.null(rv$extraction_option) && rv$extraction_option == "extract"
-
-
-        div(
-          style = " padding: 15px;",
-          #h4("Configuration de la simulation", style = "margin-top: 0;"),
-
-          # Paramètres de recrutement ajustés
-          div(
-            style = "margin-top: 15px;",
-            h5("Paramètres de recrutement ajustés",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px;margin-top: -10px"),
-            radioButtons("recrutement_ajuste", "",
-                         choices = list("Non" = "non", "Oui" = "oui"),
-                         selected = "non",
-                         inline = TRUE)
-          ),
-
-          # Coupe partielle
-          div(
-            style = "margin-top: 15px;",
-            h5("Coupe partielle réalisée depuis moins de 10 ans",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
-            radioButtons("coupe_partielle", "",
-                         choices = list("Non" = "non", "Oui" = "oui"),
-                         selected = "non",
-                         inline = TRUE)
-          ),
-
-          # Maladie corticale du hêtre
-          div(
-            style = "margin-top: 15px;",
-            h5("Maladie corticale du hêtre",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
-            radioButtons("mch", "",
-                         choices = list("Non" = "non", "Oui" = "oui"),
-                         selected = "non",
-                         inline = TRUE)
-          ),
-
-          # Module d'accroissement - avec désactivation des options avancées si pas de données climatiques
-          div(
-            style = "margin-top: 15px;",
-            h5("Module d'accroissement",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
-            if (no_climate_data) {
-              # Si pas de données climatiques, on désactive les options avancées
-              tags$div(
-                selectInput(
-                inputId = "module_accroissement",
-                label = "",
-                choices = list(
-                  "Original" = "original",
-                  "Wang 2023" = "brt",
-                  "D'Orangeville 2018" = "gam",
-                  "Fortin 2026" = "fortin"
-                ),
-                selected = "original",
-                selectize = FALSE
-              ),
-
-                tags$script(HTML("
-                $(document).ready(function() {
-                $('#module_accroissement option[value=\"brt\"]').prop('disabled', true);
-                $('#module_accroissement option[value=\"gam\"]').prop('disabled', true);
-                $('#module_accroissement option[value=\"fortin\"]').prop('disabled', true);
-
-                });
-              "))#,
-                #tags$div(
-                  #style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: 5px;",
-                  #"Les modules Wang 2023, D'Orangeville 2018 et Fortin 2026 sont désactivées car vous avez choisi de ne pas utiliser de données climatiques"
-                #)
-              )
-            } else {
-              # Options normales si données climatiques disponibles
-              selectInput(
-                inputId = "module_accroissement",
-                label = "",
-                choices = list(
-                  "Original" = "original",
-                  "Wang 2023" = "brt",
-                  "D'Orangeville 2018" = "gam",
-                  "Fortin 2026" = "fortin"
-                ),
-                selected = "original"
-              )
-
-            }
-          ),
-
-          # Module de mortalité - avec désactivation de l'option QUE si pas de données climatiques
-          div(
-            style = "margin-top: 15px;",
-            h5("Module de mortalité",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
-            if (no_climate_data) {
-              # Si pas de données climatiques, on désactive l'option QUE
-              tags$div(
-                selectInput(
-                  inputId = "module_mortalite",
-                  label = "",
-                  choices = list(
-                            "Original" = "original",
-                            "Power 2025" = "que",
-                            "Power 2026" = "caneu"),
-                        selected = "original",
-                        selectize = FALSE
-                             ),
-                tags$script(HTML("
-                 $(document).ready(function() {
-                  $('#module_mortalite option[value=\"que\"]').prop('disabled', true);
-                  $('#module_mortalite option[value=\"caneu\"]').prop('disabled', true);
-                });
-              ")),
-                tags$div(
-                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: -10px;",
-                  "Options des modules d'accroissement et de mortalité désactivés car vous avez choisi de ne pas utiliser de données climatiques"
-                )
-              )
-            } else {
-              # Options normales si données climatiques disponibles
-              selectInput(
-                inputId = "module_mortalite",
-                label = "",
-                choices = list(
-                  "Original" = "original",
-                  "Power 2025" = "que",
-                  "Power 2026" = "caneu"),
-                selected = "original")
-            }
-          ),
-
-          # Nombre d'années de simulation
-          div(
-            style = "margin-top: 15px;",
-            h5("Nombre d'années de simulation (multiple de 10)",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
-            if (extracted_climate_data && !is.null(rv$extraction_horizon)) {
-              # Si données extraites, afficher un champ désactivé avec l'horizon * 10
-              div(
-                numericInput("annees_simulation", "",
-                             value = rv$extraction_horizon * 10,
-                             min = 10,
-                             step = 10),
-                tags$script(HTML("
-                $(document).ready(function() {
-                  $('#annees_simulation').prop('disabled', true);
-                });
-              ")),
-                tags$div(
-                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: -15px;",
-                  "Ce champ est automatiquement défini selon l'horizon de simulation climatique"
-                )
-              )
-            } else {
-              # Champ normal si données climatiques importées ou non utilisées
-              numericInput("annees_simulation", "",
-                           value = 10,
-                           min = 10,
-                           max = if (!no_climate_data) rv$max_annees_simulation else NA,
-                           step = 10)
-            }
-          )
-
-          ,
-
-          # Évolution du climat - désactivée si pas de données climatiques
-          div(
-            style = "margin-top: 15px;",
-            h5("Évolution du climat",style = "color: #2c3e50; font-weight: bold;margin-bottom: -10px"),
-            if (no_climate_data) {
-              # Option désactivée avec message d'information
-              tags$div(
-                radioButtons("evolution_climat", "",
-                             choices = list("Oui" = "yes", "Non" = "no"),
-                             selected = "no",
-                             inline = TRUE),
-                tags$script(HTML("
-                $(document).ready(function() {
-                  $('input[name=\"evolution_climat\"]').prop('disabled', true);
-                });
-              ")),
-                tags$div(
-                  style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: -10px;",
-                  "Option désactivée car vous avez choisi de ne pas utiliser de données climatiques"
-                )
-              )
-            } else {
-              # Options normales
-              radioButtons("evolution_climat", "",
-                           choices = list("Oui" = "yes", "Non" = "no"),
-                           selected = "yes",
-                           inline = TRUE)
-            }
-          ),
-
-          div(
-            style = "margin-top: 15px;",
-            h5("Traitement de coupe", style = "color: #2c3e50; font-weight: bold;"),
-            checkboxInput("enable_coupe", "Activer les traitements de coupe", value = FALSE),
-
-            conditionalPanel(
-              condition = "input.enable_coupe == true",
-              tags$details(
-                open = NA, # enlève pour démarrer fermé; mets = "open" pour démarrer ouvert
-                style = "margin-top: -10px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
-                tags$summary(
-                  "Configurez les traitements de coupe par décennie",
-                  style = "cursor: pointer; font-weight: 600; color: #2c3e50;"
-                ),
-                div(
-                  style = "margin-top: 10px;",
-                  uiOutput("coupe_config_ui")
-                )
-              )
-            )
-          ),
-
-          div(
-            style = "margin-top: 15px;",
-            h5("Tordeuse des bourgeons de l'épinette (TBE)", style = "color: #2c3e50; font-weight: bold;"),
-            checkboxInput("enable_tbe", "Activer défoliation TBE", value = FALSE),
-
-            tags$div(
-              style = "color: #6c757d; font-style: italic; font-size: 0.9em; margin-top: -20px;",
-              "La défoliation TBE s'active uniquement avec les modules d'accroissement et de moratlité 'Original'"
-            ),
-
-            conditionalPanel(
-              condition = "input.enable_tbe == true",
-              tags$details(
-                open = NA,
-                style = "margin-top: 10px; padding: 10px; background-color: #f1f3f4; border-radius: 3px;",
-                tags$summary(
-                  "Sélectionnez les décennies avec défoliation sévère par la TBE:",
-                  style = "cursor: pointer; font-weight: 600; color: #2c3e50;"
-                ),
-                div(
-                  style = "margin-top: 10px;",
-                  uiOutput("tbe_config_ui")
-                )
-              )
-            )
-
-          ),
-
-
-
-          # Bouton pour lancer la simulation
-          div(
-            style = "margin-top: 20px;",
-            actionBttn(
-              "lancer_simulation",
-              "Lancer la simulation",
-              style = "gradient",
-              color = "primary",
-              icon = icon("play-circle"),
-              block = TRUE
-            )
-          )
-        )
-      })
-
-    }
-
-  observeEvent(input$enable_coupe, {
-    if (input$enable_coupe && !is.null(input$annees_simulation)) {
-      horizon <- input$annees_simulation / 10
-      # Initialiser seulement si pas déjà fait
-      if (is.null(rv$coupe_on_vector)) {
-        rv$coupe_on_vector <- rep(NA_real_, horizon)
-        rv$coupe_modif_vector <- vector("list", horizon)
-      }
-    } else {
-      # Réinitialiser les vecteurs quand la case est décochée
-      rv$coupe_on_vector <- NULL
-      rv$coupe_modif_vector <- NULL
-    }
-  })
-
-
-  observeEvent(
-    list(input$module_accroissement, input$module_mortalite),
-    ignoreInit = TRUE,
-    {
-      desactiver_tbe <- !(input$module_accroissement == "original" &&
-                              input$module_mortalite     == "original")
-      # enabled si au moins un est "original"
-      session$sendCustomMessage("toggle_tbe", list(disable = desactiver_tbe))
-    }
-  )
-
-
-  observeEvent(input$enable_tbe, {
-    if (input$enable_tbe && !is.null(input$annees_simulation)) {
-      horizon <- input$annees_simulation / 10
-      # Initialiser seulement si pas déjà fait
-      if (is.null(rv$tbe_vector)) {
-        rv$tbe_vector <- rep(0, horizon)
-      }
-    } else {
-      # Réinitialiser le vecteur quand la case est décochée
-      rv$tbe_vector <- NULL
-    }
-  })
-
-
-  output$coupe_config_ui <- renderUI({
-    req(input$enable_coupe, input$annees_simulation)
-    horizon <- input$annees_simulation / 10
-
-    div(
-      div(
-        style = "margin-bottom: 15px;",
-        selectInput("decennie_coupe", "Décennie de coupe:",
-                    choices = setNames(0:(horizon-1), paste("Décennie", 0:(horizon-1), "-", 1:horizon)),
-                    selected = NULL)
-      ),
-      div(
-        style = "margin-bottom: 15px;margin-top:-10px",
-        selectInput("type_coupe", "Type de coupe:",
-                    choices = c("Aucune coupe" = "NA",
-                                 setNames(c(0:1,6:9,12:19), c("Coupe d'amélioration","Coupe d'éclaircie","Coupe de jardinage","Coupe progressive",
-                                                     "Éclaircie commerciale","Éclaicie sélective","Coupe progressive (CPI_CP)",
-                                                     "Coupe progressive (CPI_RL)","Coupe réserve semanciers","Jardinage CIMOTFF",
-                                                     "Jarinage gr. arbres CIMOTFF", "CPI_CP CIMOTFF","CPI_RL CIMOTFF","CPRS"))),
-                                #setNames(0:1,c("Éclaicie","CPRS"))),
-                    selected = "NA")
-
-      ),
-
-      # Section pour le type de modificateur
-      div(
-        style = "margin-bottom: 10px;margin-top:-10px",
-        h5("Type de modificateur:", style = "margin-bottom: -10px;margin-top:-10px;font-weight: bold;"),
-        radioButtons("type_modif", "",
-                     choices = list(
-                       "Modificateur simple (même valeur pour toutes les essences)" = "simple",
-                       "Fichier (modificateurs par essence)" = "excel"
-                     ),
-                     selected = "simple"),
-
-        # Interface conditionnelle selon le choix
-        conditionalPanel(
-          condition = "input.type_modif == 'simple'",
-          div(style = "margin-top:-10px",
-          numericInput("modif_coupe", "Modificateur (%):",
-                       value = 0, min = -80, max = 160, step = 5))
-        ),
-
-        conditionalPanel(
-          condition = "input.type_modif == 'excel'",
-          div(
-            style = "margin-bottom: -20px;margin-top:-10px",
-            fileInput("modif_excel_file", "Fichier des modificateurs:",
-                      accept = c(".xlsx", ".xls", ".csv")),
-            div(
-              style = "font-size: 0.85em; color: #6c757d; font-style: italic;margin-top:-40px; margin-bottom:30px",
-              "Le fichier doit contenir les colonnes 'ess_ind' et 'modifier'
-              (Excel ou CSV) modifier doit se situer entre -80 et 160%"
-            )
-          )
-        )
-      ),
-
-      div(
-        style = "margin-bottom: 10px;",
-        # div(
-        #   style = "margin-bottom: 5px;",
-        #   actionButton("apply_coupe", "Appliquer la coupe",
-        #                style = "background-color: #3c8dbc; color: white; width: 100%;")
-        # ),
-        div(
-          actionButton("clear_coupes", "Effacer toutes les coupes",
-                       style = "background-color: #dc3545; color: white; width: 100%;")
-        )
-      ),
-
-      # Affichage du vecteur actuel
-      div(
-        style = "background-color: #f1f3f4; padding: 10px; border-radius: 3px;",
-        h6("Configuration actuelle des coupes:"),
-        verbatimTextOutput("display_coupes")
-      )
-    )
-  })
-
-  # Interface pour TBE
-  output$tbe_config_ui <- renderUI({
-    req(input$enable_tbe, input$annees_simulation)
-    horizon <- input$annees_simulation / 10
-
-    div(
-      div(
-        style = "margin-bottom: 15px;",
-        selectInput("decennie_tbe", "Décennie:",
-                    choices = setNames(0:(horizon-1), paste("Décennie", 0:(horizon-1), "-", 1:horizon)),
-                    selected = NULL)
-      ),
-      div(
-        style = "margin-bottom: 15px; margin-top:-10px",
-        selectInput("effet_tbe", "Défoliation TBE:",
-                    choices = list("Absent" = 0, "Présent" = 1),
-                    selected = 0)
-      ),
-
-      div(
-        style = "margin-bottom: 10px;",
-        # div(
-        #   style = "margin-bottom: 5px;",
-        #   actionButton("apply_tbe", "Appliquer TBE",
-        #                style = "background-color: #3c8dbc; color: white; width: 100%;")
-        # ),
-        div(
-          actionButton("clear_tbe", "Effacer défoliations TBE",
-                       style = "background-color: #dc3545; color: white; width: 100%;")
-        )
-      ),
-
-      # Affichage du vecteur actuel
-      div(
-        style = "background-color: #f1f3f4; padding: 10px; border-radius: 3px;",
-        h6("Configuration actuelle TBE:"),
-        verbatimTextOutput("display_tbe")
-      )
-    )
-  })
-
-  # Observateurs pour appliquer les modifications aux vecteurs
-  observeEvent( list(input$type_coupe, input$modif_coupe, input$modif_excel_file), {
-    req(input$decennie_coupe, input$type_coupe)
-
-    if (input$type_coupe == "NA") {
-      showNotification("Impossible d'appliquer une configuration avec 'Aucune coupe' sélectionnée.",
-                       type = "warning", duration = 4)
-      return()
-    }
-
-    decennie_idx <- as.numeric(input$decennie_coupe) + 1
-
-    if (input$type_coupe == "NA") {
-      rv$coupe_on_vector[decennie_idx] <- NA_real_
-      rv$coupe_modif_vector[[decennie_idx]] <- NA
-    } else {
-      rv$coupe_on_vector[decennie_idx] <- as.numeric(input$type_coupe)
-
-      if (!is.null(input$type_modif) && input$type_modif == "simple") {
-        rv$coupe_modif_vector[[decennie_idx]] <- input$modif_coupe
-      } else if (!is.null(input$type_modif) && input$type_modif == "excel") {
-        if (!is.null(input$modif_excel_file) && !is.null(input$modif_excel_file$datapath)) {
-          tryCatch({
-            # Détecter le type de fichier par l'extension
-            file_ext <- tools::file_ext(input$modif_excel_file$name)
-
-            if (file_ext %in% c("xlsx", "xls")) {
-              modif_data <- readxl::read_excel(input$modif_excel_file$datapath)
-            } else if (file_ext == "csv") {
-              modif_data <- read.csv(input$modif_excel_file$datapath, sep = ";", header = TRUE)
-            } else {
-              showNotification("Format de fichier non supporté. Utilisez Excel (.xlsx, .xls) ou CSV.",
-                               type = "error", duration = 5)
-              return()
-            }
-
-            if (!all(c("ess_ind", "modifier") %in% colnames(modif_data))) {
-              showNotification("Le fichier doit contenir les colonnes 'ess_ind' et 'modifier'",
-                               type = "error", duration = 5)
-              return()
-            }
-
-            # Ajouter le nom du fichier au data.frame
-            attr(modif_data, "filename") <- input$modif_excel_file$name
-            rv$coupe_modif_vector[[decennie_idx]] <- modif_data
-
-          }, error = function(e) {
-            showNotification(paste("Erreur lors de la lecture du fichier:", e$message),
-                             type = "error", duration = 5)
-            return()
-          })
-        } else {
-          showNotification("Veuillez sélectionner un fichier",
-                           type = "error", duration = 5)
-          return()
-        }
-      } else {
-        rv$coupe_modif_vector[[decennie_idx]] <- 0
-      }
-    }
-
-    showNotification(paste("Coupe appliquée à la décennie", input$decennie_coupe),
-                     type = "message", duration = 2)
-  })
-
-  observeEvent({input$decennie_tbe
-                input$effet_tbe
-  }, {
-    req(input$decennie_tbe, input$effet_tbe)
-
-    decennie_idx <- as.numeric(input$decennie_tbe) + 1
-
-    # Vérifier que l'index est valide
-    if (decennie_idx > length(rv$tbe_vector)) {
-      showNotification("Erreur: Index de décennie invalide", type = "error", duration = 5)
-      return()
-    }
-
-    rv$tbe_vector[decennie_idx] <- as.numeric(input$effet_tbe)
-
-    showNotification(paste("TBE appliqué à la décennie", input$decennie_tbe),
-                     type = "message", duration = 2)
-  })
-
-  # Boutons pour effacer
-  observeEvent(input$clear_coupes, {
-    if (!is.null(rv$coupe_on_vector)) {
-      rv$coupe_on_vector <- rep(NA_real_, length(rv$coupe_on_vector))
-      rv$coupe_modif_vector <- vector("list", length(rv$coupe_modif_vector))
-      showNotification("Toutes les coupes ont été effacées", type = "message", duration = 2)
-    }
-  })
-
-  observeEvent(input$clear_tbe, {
-    if (!is.null(rv$tbe_vector)) {
-      rv$tbe_vector <- rep(0, length(rv$tbe_vector))
-      showNotification("Tous les effets TBE ont été effacés", type = "message", duration = 2)
-    }
-  })
-
-  # Affichage des vecteurs actuels
-  output$display_coupes <- renderText({
-    if (!is.null(rv$coupe_on_vector) && length(rv$coupe_on_vector) > 0) {
-      coupe_display <- ifelse(is.na(rv$coupe_on_vector), "NA", as.character(rv$coupe_on_vector))
-
-      modif_display <- sapply(seq_along(rv$coupe_modif_vector), function(i) {
-        x <- rv$coupe_modif_vector[[i]]
-        if (is.null(x) || (length(x) == 1 && is.na(x))) {
-          "NA"
-        } else if (is.numeric(x) && length(x) == 1) {
-          paste0(x, "%")
-        } else if (is.data.frame(x) && nrow(x) > 0) {
-          filename <- attr(x, "filename")
-          if (!is.null(filename)) {
-            filename
-          } else {
-            paste0("Excel (", nrow(x), " essences)")
-          }
-        } else {
-          "Vide"
-        }
-      })
-
-      paste0("Coupe_ON: [", paste(coupe_display, collapse = ", "), "]\n",
-             "Modif: [", paste(modif_display, collapse = ", "), "]")
-    } else {
-      "Aucune configuration"
-    }
-  })
-
-  output$display_tbe <- renderText({
-    if (!is.null(rv$tbe_vector)) {
-      paste0("TBE: [", paste(rv$tbe_vector, collapse = ", "), "]")
-    } else {
-      "Aucune configuration"
-    }
-  })
-
-  observe({
-    if (!is.null(input$annees_simulation) && !is.null(input$enable_coupe) && input$enable_coupe) {
-      new_horizon <- input$annees_simulation / 10
-
-      # Redimensionner le vecteur coupe_on
-      if (is.null(rv$coupe_on_vector) || length(rv$coupe_on_vector) != new_horizon) {
-        old_vector <- rv$coupe_on_vector
-        rv$coupe_on_vector <- rep(NA_real_, new_horizon)
-
-        # Conserver les anciennes valeurs si elles existent
-        if (!is.null(old_vector) && length(old_vector) > 0) {
-          copy_length <- min(length(old_vector), new_horizon)
-          rv$coupe_on_vector[1:copy_length] <- old_vector[1:copy_length]
-        }
-      }
-
-      # Redimensionner la liste coupe_modif
-      if (is.null(rv$coupe_modif_vector) || length(rv$coupe_modif_vector) != new_horizon) {
-        old_list <- rv$coupe_modif_vector
-        rv$coupe_modif_vector <- vector("list", new_horizon)
-
-        # Conserver les anciennes valeurs si elles existent
-        if (!is.null(old_list) && length(old_list) > 0) {
-          copy_length <- min(length(old_list), new_horizon)
-          rv$coupe_modif_vector[1:copy_length] <- old_list[1:copy_length]
-        }
-      }
-    }
-  })
-
-  # Observer similaire pour TBE
-  observe({
-    if (!is.null(input$annees_simulation) && !is.null(input$enable_tbe) && input$enable_tbe) {
-      new_horizon <- input$annees_simulation / 10
-
-      # Redimensionner le vecteur TBE
-      if (is.null(rv$tbe_vector) || length(rv$tbe_vector) != new_horizon) {
-        old_vector <- rv$tbe_vector
-        rv$tbe_vector <- rep(0, new_horizon)
-
-        # Conserver les anciennes valeurs si elles existent
-        if (!is.null(old_vector) && length(old_vector) > 0) {
-          copy_length <- min(length(old_vector), new_horizon)
-          rv$tbe_vector[1:copy_length] <- old_vector[1:copy_length]
-        }
-      }
-    }
-  })
-
-
-
-
-  # Ajout d'un observateur pour l'action de lancer la simulation - avec restrictions des options
-  observeEvent(input$lancer_simulation, {
-    # Vérifier que tous les paramètres sont sélectionnés
-    if (is.null(input$recrutement_ajuste) || is.null(input$coupe_partielle) || is.null(input$mch) ||
-        is.null(input$module_accroissement) || is.null(input$module_mortalite) ||
-        is.null(input$annees_simulation)) {
-
-      showNotification(
-        "Veuillez sélectionner tous les paramètres avant de lancer la simulation.",
-        type = "error",
-        duration = 5
-      )
-      return()
-    }
-
-    # Vérifier que le nombre d'années est un multiple de 10
-    if (input$annees_simulation %% 10 != 0) {
-      showNotification(
-        "Le nombre d'années de simulation doit être un multiple de 10.",
-        type = "error",
-        duration = 5
-      )
-      return()
-    }
-
-    # Vérifier que le nombre d'années est inférieur ou égal au nombre d'années du fichier climatique
-  if (input$extraction_choice=="upload"){
-
-    if (input$annees_simulation > rv$max_annees_simulation) {
-      showNotification(
-        "Le nombre d'années de simulation dépasse l'horizon des données climatiques",
-        type = "error",
-        duration = 5
-      )
-      return()
-    }
-  }
-
-    # Si données climatiques sont requises mais pas disponibles (pas pour option "none")
-    if (!is.null(rv$extraction_option) && rv$extraction_option != "none" &&
-        (is.null(rv$climat_annuel) || is.null(rv$climat_mensuel))) {
-      showNotification(
-        "Les données climatiques sont nécessaires pour lancer la simulation.",
-        type = "error",
-        duration = 5
-      )
-      return()
-    }
-
-    # Variable pour savoir si l'option "none" a été choisie (pas de données climatiques)
-    no_climate_data <- !is.null(rv$extraction_option) && rv$extraction_option == "none"
-
-    # Vérification supplémentaire pour les options incompatibles avec l'absence de données climatiques
-    if (no_climate_data) {
-      if (input$module_accroissement == "brt" || input$module_accroissement == "gam") {
-        showNotification(
-          "Les modules d'accroissement Wang 2023 et D'Orangeville 2018 nécessitent des données climatiques.",
-          type = "error",
-          duration = 5
-        )
-        return()
-      }
-
-      if (input$module_mortalite == "que") {
-        showNotification(
-          "Le module de mortalité Power 2025 nécessite des données climatiques.",
-          type = "error",
-          duration = 5
-        )
-        return()
-      }
-
-      if (input$evolution_climat == "yes") {
-        showNotification(
-          "L'évolution du climat nécessite des données climatiques.",
-          type = "error",
-          duration = 5
-        )
-        return()
-      }
-    }
-
-    # Afficher un message de traitement
-    showModal(modalDialog(
-      title = "Simulation en cours",
-      div(
-        style = "text-align: center;",
-        img(src = "https://i.gifer.com/origin/b4/b4d657e7ef262b88eb5f7ac021edda87.gif",
-            height = "100px",
-            style = "margin-bottom: 20px;"),
-        p("Simulation en cours..."),
-        p(style = "font-size: 0.9em; color: #6c757d;",
-          "Cela peut prendre plusieurs minutes. Veuillez patienter.")
-      ),
-      footer = NULL,
-      easyClose = FALSE,
-      backdrop = "static"
-    ))
-
-    # Conversion des choix d'interface en paramètres pour la fonction
-    Tendance <- ifelse(input$recrutement_ajuste == "oui", 1, 0)
-    Residuel <- ifelse(input$coupe_partielle == "oui", 1, 0)
-    mch <- ifelse(input$mch == "oui", 1, 0)
-
-    if (!is.null(rv$extraction_option) && rv$extraction_option == "extract" && !is.null(rv$extraction_horizon)) {
-      Horizon <- rv$extraction_horizon
-    } else {
-      # Sinon, utilisez le nombre d'années divisé par 10
-      Horizon <- input$annees_simulation/10
-    }
-
-
-
-    # Si l'utilisateur a choisi "none" (pas de données climatiques), force EvolClim à 0
-    # et force certains modules à "ORI"
-    if (no_climate_data) {
-      EvolClim <- 0
-      AccModif <- "ORI"  # Forcer le module d'accroissement à Original
-      MortModif <- "ORI"  # Forcer le module de mortalité à Original
-    } else {
-      EvolClim <- ifelse(input$evolution_climat == "yes", 1, 0)
-      AccModif <- switch(input$module_accroissement,
-                         "original" = "ORI",
-                         "brt" = "BRT",
-                         "gam" = "GAM",
-                         "fortin"="QUE")
-      MortModif <- switch(input$module_mortalite,
-                          "original" = "ORI",
-                          "que" = "QUE",
-                          "caneu" = "CANEU")
-    }
-
-    # Déterminer le RCP à utiliser
-    RCP_value <- ifelse(!is.null(input$rcp),
-                        input$rcp,
-                        "RCP45")  # Valeur par défaut
-
-
-    coupe_on <- if (!is.null(input$enable_coupe) && input$enable_coupe) {
-      rv$coupe_on_vector
-    } else {
-      NULL
-    }
-
-    coupe_modif <- if (!is.null(input$enable_coupe) && input$enable_coupe) {
-      as.list(rv$coupe_modif_vector)
-    } else {
-      NULL
-    }
-
-    tbe <- if (!is.null(input$enable_tbe) && input$enable_tbe) {
-      rv$tbe_vector
-    } else {
-      NULL
-    }
-
-    # Exécuter la fonction simulateurArtemis dans un bloc tryCatch pour gérer les erreurs
-    result <- tryCatch({
-      # Appel à la fonction simulateurArtemis avec les paramètres appropriés
-      simulateurArtemis(
-        Data_ori = data(),
-        Horizon = Horizon,
-        ClimMois = rv$climat_mensuel,
-        ClimAn = rv$climat_annuel,
-        Tendance = Tendance,
-        Residuel = Residuel,
-        EvolClim = EvolClim,
-        AccModif = AccModif,
-        MortModif = MortModif,
-        RCP = RCP_value,
-        Coupe_ON = coupe_on,
-        Coupe_modif = coupe_modif,
-        TBE = tbe,
-        MCH = mch
-      )
-    }, error = function(e) {
-      removeModal()
-      showNotification(
-        paste("Erreur lors de la simulation:", e$message),
-        type = "error",
-        duration = 10
-      )
-      return(NULL)
-    })
-
-    # Stocker le résultat dans une variable réactive pour le téléchargement
-    rv$resultats_simulation <- result
-
-    # Fermer la boîte de dialogue si l'opération a réussi
-    if (!is.null(result)) {
-      removeModal()
-
-      # Définir les valeurs réelles utilisées pour les modules en cas d'absence de données climatiques
-      module_acc_utilise <- if (no_climate_data) "Original" else switch(input$module_accroissement,
-                                                                              "original" = "Original",
-                                                                              "brt" = "Wang 2023",
-                                                                              "gam" = "D'Orangeville 2018",
-                                                                              "fortin"= "Fortin 2026")
-
-      module_mort_utilise <- if (no_climate_data) "Original" else switch(input$module_mortalite,
-                                                                               "original" = "Original",
-                                                                               "que" = "Power 2025",
-                                                                               "caneu" = "Power 2026")
-
-      # Afficher un résultat de simulation
-      showModal(modalDialog(
-        title = "Simulation terminée",
-        div(
-          style = "text-align: center;",
-          icon("check-circle", class = "fa-3x", style = "color: #4D90D6; margin-bottom: 15px;"),
-          h4("La simulation a été effectuée avec succès !"),
-          #p("Vous pouvez télécharger les résultats ci-dessous :"),
-          div(
-            style = "margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px; text-align: left;",
-            h5("Paramètres utilisés :"),
-            tags$ul(
-              tags$li(paste0("Paramètres de recrutement ajustés : ", input$recrutement_ajuste)),
-              tags$li(paste0("Coupe partielle récente : ", input$coupe_partielle)),
-              tags$li(paste0("Maladie corticale du hêtre : ", input$mch)),
-              tags$li(paste0("Module d'accroissement : ", module_acc_utilise)),
-              tags$li(paste0("Module de mortalité : ", module_mort_utilise)),
-              tags$li(paste0("Nombre d'années : ", input$annees_simulation)),
-              tags$li(paste0("Défoliation TBE : ",ifelse(input$enable_tbe, "Oui", "Non") )),
-              tags$li(paste0("Traitement de coupe : ",ifelse(input$enable_coupe, "Oui", "Non") )),
-              if (input$enable_coupe) {
-                verbatimTextOutput("display_coupes")
-              },
-              if (no_climate_data) {
-                tags$li(paste0("Évolution du climat : Non (Données climatiques non utilisées)"))
-              } else {
-                tags$li(paste0("Évolution du climat : ", ifelse(input$evolution_climat == "yes", "Oui", "Non")))
-              },
-              if (!no_climate_data) {
-                tags$li(paste0("Scénario RCP : ", RCP_value))
-              }
-            )
-          ),
-          div(
-            # style = "margin-top: 20px;",
-            # downloadButton("download_resultats", "Télécharger les résultats",
-            #                style = "background-color: #28a745; color: white;")
-          )
-        ),
-        footer = actionButton("close_simulation", "Suivant",
-                              style = "background-color: #007bff; color: white;"),
-        easyClose = FALSE,
-        backdrop = "static"
-      ))
-    }
-  })
-
-  observe({
-    if (!is.null((rv$resultats_simulation))) {
-      listeEspece <- unique((rv$resultats_simulation)$GrEspece)
-      listeEspece2 <- append("TOT", listeEspece)
-      updateSelectInput(session = session,
-                        inputId = "espece",
-                        label = "Groupe d'espèces",
-                        choices = listeEspece2)
-    }
-  })
-
-  # Gestionnaire de téléchargement pour les résultats de simulation (ne garder que celui-ci)
-  output$download_resultats <- downloadHandler(
-    filename = function() {
-      paste("resultats_simulation_", format(Sys.Date(), "%Y%m%d"), ".csv", sep = "")
-    },
-    content = function(file) {
-      # Utiliser le dataframe résultant de la simulation
-      if (!is.null(rv$resultats_simulation)) {
-        write.table(rv$resultats_simulation, file, sep = ";", row.names = FALSE)
-      } else {
-        # Créer un fichier vide ou avec un message d'erreur si aucun résultat n'est disponible
-        write.csv(data.frame(Erreur = "Aucun résultat de simulation disponible"), file, row.names = FALSE)
-      }
-    }
-  )
-
-
-  output$download_arbres<- downloadHandler(
-    filename = function() {
-      "Donnees_Exemple_Artemis.csv"
-    },
-    content = function(file) {
-      file.copy("WWW/Donnees_Exemple.csv", file)
-    }
-  )
-
-  output$download_climat_annuel<- downloadHandler(
-    filename = function() {
-      "Donnees_ClimAn_Exemple_Artemis.csv"
-    },
-    content = function(file) {
-      file.copy("WWW/ClimAn_Exemple.csv", file)
-    }
-  )
-
-
-  output$download_climat_mensuel<- downloadHandler(
-    filename = function() {
-      "Donnees_ClimMois_Exemple_Artemis.csv"
-    },
-    content = function(file) {
-      file.copy("WWW/ClimMois_Exemple.csv", file)
-    }
-  )
-
-  output$download_guide<- downloadHandler(
-    filename = function() {
-      "Guide d'utilisation Artemis.pdf"
-    },
-    content = function(file) {
-      file.copy("WWW/Guide_Artemis.pdf", file)
-    }
-  )
-
-  observeEvent(input$close_simulation, {
-    removeModal()
-
-    if (!is.null(rv$resultats_simulation)) {
-      saveRDS(rv$resultats_simulation, "cached_simulation_results.rds")
-      cat("✓ Simulation results saved for development\n")
-    }
-
-    rv$simulation_terminee <- TRUE
-    updateTabItems(session, "sidebarMenu", "results")
-  })
-
-
-  observe({
-
-    if (input$sidebarMenu == "results" && !rv$simulation_terminee) {
-
-      updateTabItems(session, "sidebarMenu", "data")
-
-      showNotification(
-        "Veuillez d'abord effectuer une simulation pour accéder aux résultats.",
-        type = "warning",
-        duration = 5
-      )
-    }
-  })
-
-
-
-  observe({
-    req(rv$resultats_simulation)
-
-    # Extraire toutes les placettes uniques des résultats
-    placettes <- unique(rv$resultats_simulation$PlacetteID)
-
-    # Mettre à jour le sélecteur de placettes
-    updatePickerInput(
-      session,
-      "placette",
-      choices = placettes,
-      selected = placettes
-    )
-  })
-
-  observeEvent(input$add_grade2, {
-    rv$show_grade2 <- TRUE
-  })
-
-  observeEvent(input$add_grade3, {
-    rv$show_grade3 <- TRUE
-  })
-
-  observeEvent(input$remove_grade2, {
-    rv$show_grade2 <- FALSE
-    rv$show_grade3 <- FALSE  # Si on supprime Grade 2, supprimer aussi Grade 3
-
-    # Réinitialiser les valeurs du Grade 2 et 3
-    updateTextInput(session, "nom_grade2", value = "")
-    updateSelectInput(session, "long_grade2", selected = "-- Aucune --")
-    updateNumericInput(session, "diam_grade2", value = NA)
-
-    updateTextInput(session, "nom_grade3", value = "")
-    updateSelectInput(session, "long_grade3", selected = "-- Aucune --")
-    updateNumericInput(session, "diam_grade3", value = NA)
-  })
-
-  observeEvent(input$remove_grade3, {
-    rv$show_grade3 <- FALSE
-
-    # Réinitialiser les valeurs du Grade 3
-    updateTextInput(session, "nom_grade3", value = "")
-    updateSelectInput(session, "long_grade3", selected = "-- Aucune --")
-    updateNumericInput(session, "diam_grade3", value = NA)
-  })
-
-  # Observer pour afficher le Grade 3 (seulement si Grade 2 existe)
-  observeEvent(input$add_grade3, {
-    if (rv$show_grade2) {  # Vérification de sécurité
-      rv$show_grade3 <- TRUE
-    }
-  })
-
-  output$add_grade2_button <- renderUI({
-    if (!rv$show_grade2) {
-      div(
-        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed ##3c8dbc; border-radius: 5px; background-color: #f0f9ff;",
-        actionButton("add_grade2",
-                     "Ajouter Grade 2",
-                     style = "background-color: ##3c8dbc; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
-                     icon = icon("plus-circle"))
-      )
-    }
-  })
-
-  # Section du Grade 2
-  output$add_grade2_button <- renderUI({
-    if (!rv$show_grade2) {
-      div(
-        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed #3c8dbc; border-radius: 5px; background-color: #f0f9ff;",
-        actionButton("add_grade2",
-                     "Ajouter Grade 2",
-                     style = "background-color: #3c8dbc; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
-                     icon = icon("plus-circle"))
-      )
-    }
-  })
-
-  output$grade2_section <- renderUI({
-    if (rv$show_grade2) {
-      div(
-        style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 10px; position: relative; border-left: 4px solid #3c8dbc; animation: fadeIn 0.3s ease-in;",
-
-        tags$style(HTML("
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      ")),
-
-        div(
-          style = "position: absolute; top: 10px; right: 10px;",
-          actionButton("remove_grade2",
-                       "",
-                       style = "background-color: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 50%; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);",
-                       icon = icon("times"),
-                       title = "Supprimer le Grade 2 (et Grade 3 si présent)")
-        ),
-
-        h6("Grade 2", style = "color: #3c8dbc; font-weight: bold; margin-right: 40px;"),
-        p("(Optionnel)", style = "font-size: 0.8em; color: #6c757d; margin: 0 0 15px 0;"),
-
-        textInput("nom_grade2", "Nom du grade 2:", value = "pate"),
-        selectInput("long_grade2", "Longueur (pieds):",
-                    choices = c("-- Aucune --", "Indéfini", "4", "8", "12"), selected = "4"),
-        numericInput("diam_grade2", "Diamètre au fin bout(cm):",
-                     value = 8, min = 0, max = 100, step = 0.1)
-      )
-    }
-  })
-
-  output$add_grade3_button <- renderUI({
-    if (rv$show_grade2 && !rv$show_grade3) {
-      div(
-        style = "text-align: center; margin-bottom: 15px; padding: 10px; border: 2px dashed #3c8dbc; border-radius: 5px; background-color: #faf8ff;",
-            actionButton("add_grade3",
-            "Ajouter Grade 3",
-            style = "background-color: #3c8dbc; color: white; border: none; padding: 8px 20px; border-radius: 20px;",
-            icon = icon("plus-circle"))
-      )
-    }
-  })
-
-  output$grade3_section <- renderUI({
-    if (rv$show_grade3) {
-      div(
-        style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 10px; position: relative; border-left: 4px solid #3c8dbc; animation: fadeIn 0.3s ease-in;",
-
-        div(
-          style = "position: absolute; top: 10px; right: 10px;",
-          actionButton("remove_grade3",
-                       "",
-                       style = "background-color: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 50%; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);",
-                       icon = icon("times"),
-                       title = "Supprimer le Grade 3")
-        ),
-
-        h6("Grade 3", style = "color: #3c8dbc; font-weight: bold; margin-right: 40px;"),
-        p("(Optionnel)", style = "font-size: 0.8em; color: #6c757d; margin: 0 0 15px 0;"),
-
-        textInput("nom_grade3", "Nom du grade 3:", value = ""),
-        selectInput("long_grade3", "Longueur (pieds):",
-                    choices = c("-- Aucune --", "Indéfini", "4", "8", "12"),
-                    selected = "-- Aucune --"),
-        numericInput("diam_grade3", "Diamètre au fin bout(cm):",
-                     value = NA, min = 0, max = 100, step = 0.1)
-      )
-    }
-  })
-
-
-
-  observeEvent(input$calculer_billonnage, {
-    # Vérifier SEULEMENT les paramètres de base requis pour Shiny
-    req(input$dhs_input, input$typeBillonnage, rv$resultats_simulation)
-
-    # Validation minimale : s'assurer qu'au moins le nom du Grade 1 n'est pas vide
-    if(is.null(input$nom_grade1) || input$nom_grade1 == "") {
-      showNotification("Le nom du Grade 1 est obligatoire",
-                       type = "error", duration = 5)
-      return()
-    }
-
-    withProgress(message = 'Calcul du billonnage en cours...', value = 0, {
-
-      incProgress(0.1, detail = "Validation des paramètres...")
-
-      # Conversion des types (permettre NA pour tous les grades)
-      dhs_val <- as.numeric(input$dhs_input)
-
-      # Déterminer la valeur du paramètre simplifier basé sur le bouton radio
-      simplifier_val <- input$simplifier
-
-      suppressWarnings({
-        incProgress(0.2, detail = "Traitement des longueurs...")
-
-        # Gestion des longueurs avec menu déroulant
-        long_grade1_val <- if(is.null(input$long_grade1) || input$long_grade1 == "Indéfini") {
-          NA_real_
-        } else {
-          as.numeric(input$long_grade1)
-        }
-
-        if(!is.null(input$long_grade1) && input$long_grade1 == "Indéfini" &&
-           (is.null(input$nom_grade1) || input$nom_grade1 == "") &&
-           (is.null(input$diam_grade1) || is.na(input$diam_grade1))) {
-          showNotification("Grade 1 : Si la longueur est définie (même comme 'Indéfini'), le nom et le diamètre doivent être fournis",
-                           type = "error", duration = 5)
-          return()
-        }
-
-        # Grade 2 - Seulement si affiché ET les inputs existent
-        long_grade2_val <- NA_real_
-        if (!is.null(rv$show_grade2) && isTRUE(rv$show_grade2) && !is.null(input$long_grade2)) {
-          long_grade2_val <- if(input$long_grade2 == "Indéfini" || input$long_grade2 == "-- Aucune --") {
-            NA_real_
-          } else {
-            as.numeric(input$long_grade2)
-          }
-
-          # Validations pour Grade 2
-          if(input$long_grade2 == "Indéfini" &&
-             (is.null(input$nom_grade2) || input$nom_grade2 == "") &&
-             (is.null(input$diam_grade2) || is.na(input$diam_grade2))) {
-            showNotification("Grade 2 : Si la longueur est définie (même comme 'Indéfini'), le nom et le diamètre doivent être fournis",
-                             type = "error", duration = 5)
-            return()
-          }
-
-          if((!is.null(input$nom_grade2) && input$nom_grade2 != "") ||
-             (!is.null(input$diam_grade2) && !is.na(input$diam_grade2))) {
-            if(input$long_grade2 == "" || input$long_grade2 == "-- Aucune --") {
-              showNotification("Grade 2 : Vous avez défini un nom ou un diamètre mais aucune longueur.",
-                               type = "error", duration = 5)
-              return()
-            }
-          }
-        }
-
-        # Grade 3 - Seulement si affiché ET les inputs existent
-        long_grade3_val <- NA_real_
-        if (!is.null(rv$show_grade3) && isTRUE(rv$show_grade3) && !is.null(input$long_grade3)) {
-          long_grade3_val <- if(input$long_grade3 == "Indéfini" || input$long_grade3 == "-- Aucune --") {
-            NA_real_
-          } else {
-            as.numeric(input$long_grade3)
-          }
-
-          # Validations pour Grade 3
-          if(input$long_grade3 == "Indéfini" &&
-             (is.null(input$nom_grade3) || input$nom_grade3 == "") &&
-             (is.null(input$diam_grade3) || is.na(input$diam_grade3))) {
-            showNotification("Grade 3 : Si la longueur est définie (même comme 'Indéfini'), le nom et le diamètre doivent être fournis",
-                             type = "error", duration = 5)
-            return()
-          }
-
-          if((!is.null(input$nom_grade3) && input$nom_grade3 != "") ||
-             (!is.null(input$diam_grade3) && !is.na(input$diam_grade3))) {
-            if(input$long_grade3 == "" || input$long_grade3 == "-- Aucune --") {
-              showNotification("Grade 3 : Vous avez défini un nom ou un diamètre mais aucune longueur.",
-                               type = "error", duration = 5)
-              return()
-            }
-          }
-        }
-
-        incProgress(0.3, detail = "Traitement des diamètres...")
-
-        # Gestion des diamètres - avec protection NULL
-        diam_grade1_val <- if(is.null(input$diam_grade1) || is.na(input$diam_grade1)) {
-          NA_real_
-        } else {
-          as.numeric(input$diam_grade1)
-        }
-
-        diam_grade2_val <- if(!is.null(rv$show_grade2) && isTRUE(rv$show_grade2) &&
-                              !is.null(input$diam_grade2) && !is.na(input$diam_grade2)) {
-          as.numeric(input$diam_grade2)
-        } else {
-          NA_real_
-        }
-
-        diam_grade3_val <- if(!is.null(rv$show_grade3) && isTRUE(rv$show_grade3) &&
-                              !is.null(input$diam_grade3) && !is.na(input$diam_grade3)) {
-          as.numeric(input$diam_grade3)
-        } else {
-          NA_real_
-        }
-
-        incProgress(0.4, detail = "Préparation des noms de grades...")
-
-        # Gestion des noms avec protection NULL
-        nom_grade1_val <- as.character(input$nom_grade1)
-
-        nom_grade2_val <- if(!is.null(rv$show_grade2) && isTRUE(rv$show_grade2) &&
-                             !is.null(input$nom_grade2) && input$nom_grade2 != "") {
-          as.character(input$nom_grade2)
-        } else {
-          NA_character_
-        }
-
-        nom_grade3_val <- if(!is.null(rv$show_grade3) && isTRUE(rv$show_grade3) &&
-                             !is.null(input$nom_grade3) && input$nom_grade3 != "") {
-          as.character(input$nom_grade3)
-        } else {
-          NA_character_
-        }
-      }) # Fin suppressWarnings
-
-      incProgress(0.5, detail = "Exécution du calcul de billonnage...")
-
-      # Exécuter SortieBillesFusion
-      tryCatch({
-        rv$processed_Billonage <- SortieBillesFusion(
-          Data = rv$resultats_simulation,
-          Type = as.character(input$typeBillonnage),
-          dhs = dhs_val,
-          nom_grade1 = nom_grade1_val,
-          long_grade1 = long_grade1_val,
-          diam_grade1 = diam_grade1_val,
-          nom_grade2 = nom_grade2_val,
-          long_grade2 = long_grade2_val,
-          diam_grade2 = diam_grade2_val,
-          nom_grade3 = nom_grade3_val,
-          long_grade3 = long_grade3_val,
-          diam_grade3 = diam_grade3_val,
-          Simplifier = simplifier_val
-        )
-
-        incProgress(0.9, detail = "Finalisation...")
-        rv$processed_Simul <- rv$processed_Billonage
-
-        incProgress(1, detail = "Terminé!")
-
-        showNotification("Billonnage calculé avec succès!", type = "message", duration = 3)
-
-      }, error = function(e) {
-        cat("✗ Erreur billonnage:", e$message, "\n")
-        showNotification(paste("Erreur:", e$message), type = "error", duration = 5)
-        rv$processed_Billonage <- NULL
-        rv$processed_Simul <- NULL
-      })
-
-    }) # Fin du withProgress
-  })
-
-  observeEvent(c(input$Sortie, input$simplifier), {
-    req(input$Sortie, rv$resultats_simulation)
-
-    switch(input$Sortie,
-           "arbre" = {
-             rv$processed_Simul <- SortieArbre(SimulHtVol = rv$resultats_simulation,
-                                               simplifier = input$simplifier)
-           },
-           "placette" = {
-             rv$processed_Simul <- SortiePlacette(SimulHtVol = rv$resultats_simulation,
-                                                  simplifier = input$simplifier)
-           },
-           "echelle_billon" = {
-             # Attendre que processed_Billonage soit disponible
-             if (!is.null(rv$processed_Billonage)) {
-               rv$processed_Simul <- rv$processed_Billonage
-             } else {
-               # Si pas encore traité, déclencher une invalidation pour réessayer
-               invalidateLater(100, session)
-               return()
-             }
-           }
-    )
-  }, ignoreInit = TRUE)
-
-  output$resultat_graphique <- renderPlot({
-    req(rv$resultats_simulation)
-    req(input$espece)
-    req(input$variable)
-
-    # S'assurer qu'il y a au moins une placette sélectionnée
-    if (is.null(input$placette) || length(input$placette) == 0) {
-      # Si aucune placette n'est sélectionnée, utiliser toutes les placettes
-      placettes_to_use <- unique(rv$resultats_simulation$PlacetteID)
-    } else {
-      placettes_to_use <- input$placette
-    }
-
-    # Appel de la fonction Graph du package Artemis
-    Graph(
-      Data = rv$resultats_simulation,
-      Espece = input$espece,
-      Variable = input$variable,
-      listePlacette = placettes_to_use
-    )
-  })
-
-  # Information sur la simulation
-  output$simulation_info <- renderUI({
-    req(rv$resultats_simulation)
-
-    # Variable pour savoir si l'option "none" a été choisie (pas de données climatiques)
-    no_climate_data <- !is.null(rv$extraction_option) && rv$extraction_option == "none"
-
-    div(
-      style = "margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;",
-      h5("Informations sur la simulation:"),
-      tags$ul(
-        tags$li(paste0("Recrutement ajusté: ", ifelse(input$recrutement_ajuste == "oui", "Oui", "Non"))),
-        tags$li(paste0("Module accroissement: ",case_when(input$module_accroissement=="original"~"Original",
-                                                          input$module_accroissement=="brt"~"Wang 2023",
-                                                          input$module_accroissement=="gam"~"D'Orangeville 2018",
-                                                          .default="Fortin 2026"))),
-        tags$li(paste0("Module mortalité: ",case_when(input$module_mortalite=="original"~"Original",
-                                                      input$module_mortalite=="que"~"Power 2025",
-                                                      .default="Power 2026"))),
-        tags$li(paste0("Coupe partielle: ", ifelse(input$coupe_partielle == "oui", "Oui", "Non"))),
-        tags$li(paste0("MCH: ", ifelse(input$mch == "oui", "Oui", "Non"))),
-        if (no_climate_data) {
-          tags$li("Données climatiques: Non utilisées")
-        } else {
-          tagList(
-            tags$li("Données climatiques: Utilisées"),
-            tags$li(paste0("Évolution climat: ", ifelse(input$evolution_climat == "yes", "Oui", "Non")))
-          )
-        },
-        tags$li(paste0("Années de simulation: ", input$annees_simulation),
-        tags$li(paste0("Défoliation TBE : ",ifelse(input$enable_tbe, "Oui", "Non") )),
-        tags$li(paste0("Traitement de coupe : ",ifelse(input$enable_coupe, "Oui", "Non") )),
-        if (input$enable_coupe) {
-          verbatimTextOutput("display_coupes")
-        })
-      )
-
-    )
-  })
-
-  # Gestionnaire de téléchargement dans l'onglet Résultats
-
-
-  output$download_resultats_viz <- downloadHandler(
-    filename = function() {
-      paste("resultats_simulation_",Sys.Date(), ".csv", sep = "")
-    },
-    content = function(file) {
-      # Utiliser le dataframe résultant de la simulation
-      if (!is.null(rv$resultats_simulation)) {
-        write.table(rv$resultats_simulation, file, sep = ";", row.names = FALSE)
-      } else {
-        # Créer un fichier vide ou avec un message d'erreur si aucun résultat n'est disponible
-        write.csv(data.frame(Erreur = "Aucun résultat de simulation disponible"), file, row.names = FALSE)
-      }
-    }
-  )
-
-
-
-  output$download_resultats_custom <- downloadHandler(
-    filename = function() {
-      if(!(input$Sortie == "echelle_billon")){
-
-        paste("resultats_simulation_artemis_sortie_",input$Sortie,"_",Sys.Date(), ".csv", sep = "")
-
-      }
-      else{
-        paste("resultats_simulation_artemis_sortie_",input$Sortie,"_",input$typeBillonnage,"_",Sys.Date(), ".csv", sep = "")
-      }
-    },
-    content = function(file) {
-      # Utiliser le dataframe résultant de la simulation
-      if (!is.null(rv$processed_Simul)) {
-        write.table(rv$processed_Simul, file, sep = ";", row.names = FALSE)
-      } else {
-        # Créer un fichier vide ou avec un message d'erreur si aucun résultat n'est disponible
-        write.csv(data.frame(Erreur = "Aucun résultat de simulation disponible"), file, row.names = FALSE)
-      }
-    }
-  )
-
-
-
-
-  observeEvent(input$close_simulation, {
-    removeModal()
-
-    # Afficher un message de fin
-    output$simulation_message <- renderUI({
-      div(
-        style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
-        icon("check-circle"),
-        span(style = "font-weight: bold; margin-left: 5px;", "Simulation terminée avec succès")
-      )
-    })
-  })
-
-
-
-  observeEvent(input$analyse_climat, {
-    # Vérifier les paramètres
-    req(input$annee_debut_analyse, input$annee_fin_analyse, input$type_analyse)
-
-    # S'assurer que l'année de fin est postérieure à l'année de début
-    if (input$annee_fin_analyse <= input$annee_debut_analyse) {
-      showNotification(
-        "L'année de fin doit être postérieure à l'année de début.",
-        type = "error",
-        duration = 5
-      )
-      return()
-    }
-
-
-    showModal(modalDialog(
-      title = "Analyse en cours",
-      div(
-        style = "text-align: center;",
-        img(src = "https://i.gifer.com/origin/b4/b4d657e7ef262b88eb5f7ac021edda87.gif",
-            height = "100px",
-            style = "margin-bottom: 20px;"),
-        p("Analyse de l'évolution climatique en cours..."),
-        p(style = "font-size: 0.9em; color: #6c757d;",
-          paste0("Période: ", input$annee_debut_analyse, " - ", input$annee_fin_analyse,
-                 ", Type: ", switch(input$type_analyse,
-                                    "temp_moy" = "Température moyenne",
-                                    "precip" = "Précipitations",
-                                    "gel" = "Jours de gel",
-                                    "canicule" = "Jours de canicule")))
-      ),
-      footer = NULL,
-      easyClose = FALSE
-    ))
-
-
-    Sys.sleep(3)
-
-
-    removeModal()
-
-    # Afficher un résultat
-    showModal(modalDialog(
-      title = "Analyse terminée",
-      div(
-        style = "text-align: center;",
-        icon("chart-line", class = "fa-3x", style = "color: #4D90D6; margin-bottom: 15px;"),
-        h4("L'analyse climatique a été effectuée avec succès !"),
-        p("Un rapport d'évolution climatique a été généré."),
-        div(
-          style = "margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px; text-align: left;",
-          h5("Paramètres utilisés :"),
-          tags$ul(
-            tags$li(paste0("Période : ", input$annee_debut_analyse, " - ", input$annee_fin_analyse)),
-            tags$li(paste0("Type d'analyse : ", switch(input$type_analyse,
-                                                       "temp_moy" = "Température moyenne",
-                                                       "precip" = "Précipitations",
-                                                       "gel" = "Jours de gel",
-                                                       "canicule" = "Jours de canicule")))
-          )
-        )
-      ),
-      footer = actionButton("close_analyse", "Fermer",
-                            style = "background-color: #4D90D6; color: white;"),
-      easyClose = TRUE
-    ))
-  })
-
-
-  observeEvent(input$close_analyse, {
-    removeModal()
-
-    # Afficher le message de confirmation
-    output$simulation_message <- renderUI({
-      div(
-        style = "margin-top: 20px; padding: 15px; background-color: #81B7F0; color: #4D90D6; border-radius: 5px; text-align: center;",
-        icon("check-circle"),
-        span(style = "font-weight: bold; margin-left: 5px;", "Analyse terminée avec succès")
-      )
-    })
-
-
-    rv$extraction_completed <- TRUE
-  })
-
-
-  # pour gérer la réinitialisation
-  observeEvent(input$reset_button, {
-    # Afficher une boîte de dialogue de confirmation
-    showModal(modalDialog(
-      title = "Confirmation de réinitialisation",
-      div(
-        style = "text-align: center;",
-        p("Êtes-vous sûr de vouloir réinitialiser l'application?"),
-        p("Toutes les données et simulations actuelles seront perdues."),
-        style = "color: #721c24; font-weight: bold;"
-      ),
-      footer = tagList(
-        actionButton("confirm_reset", "Oui, réinitialiser",
-                     style = "background-color: #dc3545; color: white;"),
-        modalButton("Annuler")
-      ),
-      easyClose = TRUE
-    ))
-  })
-
-
-  observeEvent(input$confirm_reset, {
-    rv$simulation_terminee <- FALSE
-    session$reload()
-  })
-
-
-
-
-
 }
+
 
 # Lancer l'application
 shinyApp(ui = ui, server = server)
