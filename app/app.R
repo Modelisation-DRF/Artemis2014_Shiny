@@ -138,6 +138,28 @@ server <- function(input, output, session) {
     }
   })
 
+  # Active un mode dev pour charger des résultats simulés depuis un fichier
+  observe({
+    query <- parseQueryString(session$clientData$url_search)
+
+    if ("dev" %in% names(query) && file.exists("cached_simulation_results.rds")) {
+      # Load cached simulation results
+      rv$resultats_simulation <- readRDS("cached_simulation_results.rds")
+      rv$simulation_terminee <- TRUE
+
+      # Switch to results tab immediately
+      current_tab("resultats")
+
+      # Pre-select your working values for the export box
+      #updateRadioButtons(session, "simplifier", selected = FALSE)
+      #updateSelectInput(session, "Sortie", selected = "echelle_billon")
+      #updateSelectInput(session, "typeBillonnage", selected = "DHP")
+
+      showNotification("DEV MODE: Loaded cached simulation results",
+                       type = "message", duration = 3)
+    }
+  })
+
   # Page à l'ouverture (défaut)
   current_tab <- reactiveVal("donnees")
 
@@ -290,8 +312,12 @@ server <- function(input, output, session) {
                       div(class = "card-body",
                           p("Choisir un fichier CSV"),
                           fileInput("file", NULL, buttonLabel = "Parcourir", placeholder = " - ")
-                      )
+                      ),
+                      uiOutput("validation_status"),
+                      uiOutput("error_box"),
+                      uiOutput("Avertissement_box")
                     )
+
                 ),
 
                 # Configuration
@@ -361,8 +387,8 @@ server <- function(input, output, session) {
     }
   })
 
-  # Section Accueil
-  #------------------------------------------------------
+
+  #---------------Section Accueil----------------------------------
   output$download_arbres<- downloadHandler(
     filename = function() {
       "Donnees_Exemple_Artemis.csv"
@@ -390,13 +416,14 @@ server <- function(input, output, session) {
     }
   )
 
-  #Section Données
-  #-------------------------------------------------------
+
+  #---------------Section Données -------------------------------
   data_input <- reactive({
     req(input$file)
     read.csv(input$file$datapath)
   })
 
+  # Affichage du tableau de donnée
   output$contents <- renderDT({
     req(data())
     datatable(data(),
@@ -411,41 +438,6 @@ server <- function(input, output, session) {
               filter = 'top',
               class = 'cell-border stripe compact small fs-5'
     )
-  })
-
-  # Fonction réactive pour lire le fichier CSV
-  data <- reactive({
-
-    file_input <- input[[paste0("file", ifelse(is.null(rv$fileInputId), "", rv$fileInputId))]]
-
-    req(file_input)
-
-    # Réinitialiser les variables d'état lors du chargement d'un nouveau fichier
-    rv$data_valid <- FALSE
-    rv$extraction_choice_made <- FALSE
-    rv$extraction_completed <- FALSE
-    rv$climat_annuel <- NULL
-    rv$climat_mensuel <- NULL
-    rv$max_annees_simulation <- NA
-    rv$simulation_terminee <- FALSE
-
-    # Vider les sorties précédentes
-    output$extraction_question <- renderUI({})
-    output$extraction_button <- renderUI({})
-    output$simulation_message <- renderUI({})
-
-
-    showNotification("Chargement des données en cours...", type = "message", duration = 3)
-
-
-    df <- read.csv(file_input$datapath,
-                   header = TRUE,
-                   sep = ";",
-                   quote = "",
-                   encoding = "UTF-8")
-    df<-renommer_les_colonnes(df)
-
-    return(df)
   })
 
   rv <- reactiveValues(
@@ -468,6 +460,150 @@ server <- function(input, output, session) {
     show_grade3 = FALSE
 
   )
+
+  # Fonction réactive pour lire le fichier CSV
+  data <- reactive({
+
+    file_input <- input[[paste0("file", ifelse(is.null(rv$fileInputId), "", rv$fileInputId))]]
+
+    req(file_input)
+
+    # Réinitialiser les variables d'état lors du chargement d'un nouveau fichier
+    rv$data_valid <- FALSE
+    rv$extraction_choice_made <- FALSE
+    rv$extraction_completed <- FALSE
+    rv$climat_annuel <- NULL
+    rv$climat_mensuel <- NULL
+    rv$max_annees_simulation <- NA
+    rv$simulation_terminee <- FALSE
+
+    # Vider les sorties précédentes
+    output$extraction_question <- renderUI({})
+    output$extraction_button <- renderUI({})
+    output$simulation_message <- renderUI({})
+
+    showNotification("Chargement des données en cours...", type = "message", duration = 3)
+
+
+    df <- read.csv(file_input$datapath,
+                   header = TRUE,
+                   sep = ";",
+                   quote = "",
+                   encoding = "UTF-8")
+    df<-renommer_les_colonnes(df)
+
+    return(df)
+  })
+
+  # Fonction réactive pour valider les données
+  validation_errors <- reactive({
+    req(data())
+
+    # Appliquer les deux fonctions de validation existantes
+    erreurs1 <- valide_data(data(), "ORI", "ORI")
+    erreurs2 <- trouver_noms_absents(data(), "ORI", "ORI")
+
+    # Combiner toutes les erreurs
+    all_errors <- c(erreurs1, erreurs2)
+    rv$age_moy_valid <- valide_Age_moy(data(), "ORI", "ORI")
+    rv$data_valid <- length(all_errors) == 0
+
+    return(all_errors)
+  })
+
+  # fonction réactive pour valider les champs optionels
+  valider_champ_optionel <- reactive({
+    req(data())
+
+    # Appliquer les fonctions
+    champ_optionel_absent <- trouver_noms_optionels(data())
+
+    return(champ_optionel_absent)
+  })
+
+  # Indicateur visuel de validation
+  output$validation_status <- renderUI({
+
+    req(validation_errors())
+    errors <- validation_errors()
+
+    div(class = "mt-1 mb-0",
+
+        # Si erreur
+        if (length(errors) > 0) {
+          div(class = "alert alert-danger d-flex align-items-center",
+            icon("times-circle", class = "me-2"),
+            div(
+              tags$strong("Validation échouée — "),
+              paste(length(errors), "erreur(s) détectée(s)")
+            )
+          )
+        }
+
+        # Si succès
+        else {
+          tagList(
+            div(
+              class = "alert alert-success d-flex align-items-center",
+              icon("check-circle", class = "me-2"),
+              div(
+                tags$strong("Validation réussie: "),
+                "Les données sont valides"
+              )
+            )
+          )
+        }
+    )
+  })
+
+  # Afficher les erreurs
+  output$error_box <- renderUI({
+    req(validation_errors())
+    errors <- validation_errors()
+    if (length(errors) > 0){
+      div( class = "alert alert-danger ",
+        h5(class = "mb-2 mt-0", "Erreurs détectées:"),
+        tags$ul( class = "small ps-3 mb-0",
+          lapply(errors, function(error) {
+            tags$li(style = "margin-bottom: 1px; padding: 0;", error)
+          })
+        )
+      )
+    }
+  })
+
+  # Afficher les avertissements
+  output$Avertissement_box <- renderUI({
+    req(valider_champ_optionel())
+    champ_optionel_absent <- valider_champ_optionel()
+
+    div(class = "alert alert-info",
+
+      # Avertissement pour âge moyen
+      if (!rv$age_moy_valid) {
+        div(class = "alert alert-warning d-flex align-items-center",
+          icon("exclamation-triangle", class = "me-2"),
+          div(
+            tags$strong("Attention: "),
+            "La colonne Age_moy est manquante ou contient des erreurs. ",
+            "Vous ne pouvez pas utiliser les données climatiques."
+          )
+        )
+      },
+
+      # Avertissement pour champ optionnel
+    if (length(champ_optionel_absent) > 0) {
+      div(
+        h6(class = "mb-1 mt-0", "Champs optionnels absents :"),
+        tags$ul(class = "small ps-3 mb-0",
+          lapply(champ_optionel_absent, function(x) {
+            tags$li(style = "margin-bottom: 1px; padding: 0;",x
+            )
+          })
+        ))}
+      )
+    })
+
 }
 
 
