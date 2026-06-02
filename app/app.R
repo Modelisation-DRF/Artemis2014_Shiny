@@ -315,7 +315,9 @@ server <- function(input, output, session) {
                       ),
                       uiOutput("validation_status"),
                       uiOutput("error_box"),
-                      uiOutput("Avertissement_box")
+                      uiOutput("Avertissement_box"),
+                      uiOutput("Info_box"),
+                      uiOutput("extraction_question")
                     )
 
                 ),
@@ -562,7 +564,8 @@ server <- function(input, output, session) {
     errors <- validation_errors()
     if (length(errors) > 0){
       div( class = "alert alert-danger ",
-        h5(class = "mb-2 mt-0", "Erreurs détectées:"),
+           tags$strong("Erreurs détectées: "),
+
         tags$ul( class = "small ps-3 mb-0",
           lapply(errors, function(error) {
             tags$li(style = "margin-bottom: 1px; padding: 0;", error)
@@ -574,35 +577,158 @@ server <- function(input, output, session) {
 
   # Afficher les avertissements
   output$Avertissement_box <- renderUI({
-    req(valider_champ_optionel())
-    champ_optionel_absent <- valider_champ_optionel()
-
-    div(class = "alert alert-info",
-
       # Avertissement pour âge moyen
       if (!rv$age_moy_valid) {
         div(class = "alert alert-warning d-flex align-items-center",
           icon("exclamation-triangle", class = "me-2"),
           div(
             tags$strong("Attention: "),
-            "La colonne Age_moy est manquante ou contient des erreurs. ",
-            "Vous ne pouvez pas utiliser les données climatiques."
+            span(class= "small", "La colonne Age_moy est manquante ou contient des erreurs. ",
+            "Vous ne pouvez pas utiliser les données climatiques.")
           )
         )
-      },
+      }
 
-      # Avertissement pour champ optionnel
-    if (length(champ_optionel_absent) > 0) {
-      div(
-        h6(class = "mb-1 mt-0", "Champs optionnels absents :"),
-        tags$ul(class = "small ps-3 mb-0",
-          lapply(champ_optionel_absent, function(x) {
-            tags$li(style = "margin-bottom: 1px; padding: 0;",x
-            )
-          })
-        ))}
-      )
+
     })
+
+  # Afficher les autres informations
+  output$Info_box <- renderUI({
+    req(valider_champ_optionel())
+    champ_optionel_absent <- valider_champ_optionel()
+
+    # Avertissement pour champ optionnel
+    if (length(champ_optionel_absent) > 0) {
+      div( class = "alert alert-info d-flex align-items-center",
+           icon("info-circle", class = "me-2"),
+      div(
+        tags$strong("Champs optionnels absents :"),
+        tags$ul(class = "small ps-3 mb-0",
+                lapply(champ_optionel_absent, function(x) {
+                  tags$li(style = "margin-bottom: 1px; padding: 0;",x
+                  )
+                })
+        ))
+      )
+      }
+  })
+
+
+  # Modifier la question d'extraction pour inclure les trois options
+  observe({
+
+    if (rv$data_valid && !rv$extraction_choice_made && !rv$extraction_completed) {
+
+      rv$placette <- unique(data()$PlacetteID)
+
+      output$extraction_question <- renderUI({
+
+        div(
+          class = "pt-1 pb-1",
+
+          # Section pour choisir le type de simulation
+          div(
+            class = "ms-2 me-2 form-section text-primary fw-bold",
+            span("Données climatiques")
+          ),
+
+          # Section Radio-buttons
+          div(
+            class = "card-body small pt-1 pb-0 mt-0",
+
+            # Cas 1 : âge moyen invalide
+            if (!rv$age_moy_valid) {
+
+              tagList(
+                radioButtons(
+                  "extraction_choice", NULL,
+                  choices = list(
+                    "Simuler les données climatiques" = "extract",
+                    "Fournir les données climatiques" = "upload",
+                    "Simulation sans données climatiques" = "none"
+                  ),
+                  selected = "none"
+                ),
+                # Désactiver les 2 premiers radios buttons
+                tags$script(HTML("
+                $(document).ready(function() {
+                  $('input[name=\"extraction_choice\"][value=\"extract\"]').prop('disabled', true);
+                  $('input[name=\"extraction_choice\"][value=\"upload\"]').prop('disabled', true);
+                });
+              ")),
+
+                div(
+                  class = "text-warning fst-italic small",
+                  icon("exclamation-triangle", class = "me-1"),
+
+                  "La colonne Age_moy est manquante ou contient des erreurs. ",
+                  "Vous ne pouvez pas utiliser les données climatiques dans votre simulation."
+                )
+              )
+            }
+
+            # Cas si trop de placettes
+            else if (length(rv$placette) > 100) {
+
+              tagList(
+
+                radioButtons(
+                  "extraction_choice", NULL,
+                  choices = list(
+                    "Simuler les données climatiques" = "extract",
+                    "Fournir les données climatiques" = "upload",
+                    "Simulation sans données climatiques" = "none"
+                  ),
+                  selected = "none"
+                ),
+
+                tags$script(HTML("
+                $(document).ready(function() {
+                  $('input[name=\"extraction_choice\"][value=\"extract\"]').prop('disabled', true);
+                });
+              ")),
+
+                div(
+                  class = "text-warning fst-italic small",
+
+                  icon("exclamation-triangle", class = "me-1"),
+
+                  "Nombre de placettes trop grand pour simuler les données climatiques. ",
+                  "Ne doit pas dépasser 100."
+                )
+              )
+            }
+
+            # Cas normal
+            else {
+
+              radioButtons(
+                "extraction_choice", NULL,
+                choices = list(
+                  "Simuler les données climatiques" = "extract",
+                  "Fournir les données climatiques" = "upload",
+                  "Simulation sans données climatiques" = "none"
+                ),
+                selected = character(0)
+              )
+            },
+
+            # Section du bouton suivant
+            div(
+              class = "d-flex justify-content-center mt-1 mb-0",
+
+              actionButton(
+                "validate_extraction_choice",
+                "Suivant",
+                class = "btn btn-primary w-100",
+                icon = icon("arrow-right")
+              )
+            )
+          )
+        )
+      })
+    }
+  })
 
 }
 
