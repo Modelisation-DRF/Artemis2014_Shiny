@@ -38,6 +38,17 @@ ui <- fluidPage(
   # Importation du .css ministériel
   tags$head(
     tags$link(rel = "stylesheet", href = "theme-gouvernemental.css"),
+    # Collapse la section
+    tags$script(HTML("
+    Shiny.addCustomMessageHandler('collapse_import_close', function(message) {
+      var collapseElement = document.getElementById('collapse_import');
+      var bsCollapse = new bootstrap.Collapse(collapseElement, {
+        toggle: false
+      });
+      bsCollapse.hide();
+    });
+  "))
+
   ),
 
   # Header gouvernemental
@@ -309,15 +320,24 @@ server <- function(input, output, session) {
                     div(
                       id = "collapse_import",
                       class = "collapse show",
-                      div(class = "card-body",
-                          p("Choisir un fichier CSV"),
-                          fileInput("file", NULL, buttonLabel = "Parcourir", placeholder = " - ")
-                      ),
+
+                      div(
+                        class = "p-2",   # 👈 léger padding au lieu de card-body
+
+                        fileInput(
+                          "file",
+                          "Choisir un fichier CSV",
+                          buttonLabel = "Parcourir",
+                          placeholder = "Aucun fichier sélectionné"
+                        )
+                      )
+                     ,
                       uiOutput("validation_status"),
                       uiOutput("error_box"),
                       uiOutput("Avertissement_box"),
                       uiOutput("Info_box"),
-                      uiOutput("extraction_question")
+                      uiOutput("extraction_question"),
+                      uiOutput("extraction_button")
                     )
 
                 ),
@@ -338,10 +358,7 @@ server <- function(input, output, session) {
                     div(
                       id = "collapse_config",
                       class = "collapse show",
-
-                      div(class = "card-body",
-                          p("Paramètres à venir...")
-                      )
+                      uiOutput("simulation_message")
                     )
                 )
             ),
@@ -728,6 +745,290 @@ server <- function(input, output, session) {
         )
       })
     }
+  })
+
+  # Observer qui réagit au clic sur le bouton Valider
+  observeEvent(input$validate_extraction_choice, {
+    # Vérifier si une option a été sélectionnée
+    req(input$extraction_choice)
+    rv$extraction_choice_made <- TRUE
+
+    # Stocker explicitement le choix d'extraction dans la variable réactive
+    rv$extraction_option <- input$extraction_choice
+
+    # Faire disparaître la question d'extraction
+    output$extraction_question <- renderUI({})
+
+    # Fermer le collapse Importation des données
+    if (input$extraction_choice != "upload"){
+    session$sendCustomMessage(
+      type = "collapse_import_close",
+      message = list()
+      )}
+
+    # Simuler les données climatiques
+    if (input$extraction_choice == "extract") {
+
+      output$simulation_message <- renderUI({
+
+        div(
+          class = "px-3 p-2 mt-2",
+
+
+          # Paramètre caché
+          div(
+            class = "d-none",
+            numericInput(
+              "annee_depart",
+              "Année de départ :",
+              value = as.numeric(format(Sys.Date(), "%Y")),
+              min = 2000,
+              step = 1
+            )
+          ),
+
+          div(class = "fw-bold mb-1 text-primary", "Nombre d'années de simulation (multiple de 10) :"),
+
+          # Choisir l'horizon
+          div(class = "mb-2",
+              numericInput(
+                "horizon",NULL,
+                value = 10,
+                min = 10,
+                step = 10
+              )
+          ),
+
+          div(class = "fw-bold mb-1 text-primary", "Scénario RCP :"),
+
+          # Choisir le scénario
+          div(class = "mb-2 small",
+              radioButtons(
+                "rcp",NULL,
+                choices = list("RCP 4.5" = "RCP45", "RCP 8.5" = "RCP85"),
+                selected = "RCP45"
+              )
+          ),
+
+          # Bouton d'extraction
+          div(
+            class = "d-flex justify-content-end mt-2 mb-0",
+            uiOutput("extraction_button_final")
+          )
+        )
+      })
+    }
+
+    # Fournir les données climatiques
+    else if (input$extraction_choice == "upload") {
+
+      output$extraction_button <- renderUI({
+
+        div(
+          class = "p-2 px-3 mt-2",
+
+          # Titre
+          div( class = "fw-bold text-primary mb-2",
+            "Importer des données climatiques" ),
+
+          # Fichier climat annuel
+          div(class = "mb-2",
+              fileInput(
+                "climat_annuel_file",
+                "Fichier climat annuel (CSV)",
+                buttonLabel = "Parcourir",
+                placeholder = "Aucun fichier sélectionné",
+                accept = c( "text/csv", "text/comma-separated-values,text/plain", ".csv")
+              )
+          ),
+
+          # Fichier climat mensuel
+          div(class = "mb-2",
+              fileInput(
+                "climat_mensuel_file",
+                "Fichier climat mensuel (CSV)",
+                buttonLabel = "Parcourir",
+                placeholder = "Aucun fichier sélectionné",
+                accept = c( "text/csv", "text/comma-separated-values,text/plain", ".csv")
+              )
+          ),
+
+          # Choisi le scénario
+          div(class = "fw-bold mb-1 text-primary", "Scénario RCP :"),
+          div(class = "mb-2 small",
+              radioButtons(
+                "rcp",NULL,
+                choices = list("RCP 4.5" = "RCP45", "RCP 8.5" = "RCP85"),
+                selected = "RCP45"
+              )
+          ),
+
+          # Bouton
+          div(
+            class = "d-flex justify-content-end mt-2",
+            actionButton(
+              "validate_climat_files",
+              "Valider les fichiers climatiques",
+              class = "btn btn-sm btn-primary",
+              icon = icon("check")
+            )
+          )
+        )
+      })
+    }
+
+    else if (input$extraction_choice == "none") {
+      # Ne pas utiliser de données climatiques
+      # Effacer le bouton d'extraction
+      output$extraction_button <- renderUI({})
+      output$extraction_button_final <- renderUI({})
+
+      # Définir les variables climatiques comme NULL pour indiquer qu'elles ne sont pas utilisées
+      rv$climat_annuel <- NULL
+      rv$climat_mensuel <- NULL
+      rv$max_annees_simulation <- NA
+
+      # Mettre à jour l'état indiquant que le processus est terminé
+      rv$extraction_completed <- TRUE
+
+      #simulation_ui()
+
+    }
+  })
+
+  # Ajouter un nouvel observateur pour la validation des fichiers climatiques importés
+  observeEvent(input$validate_climat_files, {
+    # Vérifier que les deux fichiers ont été téléversés
+    if (is.null(input$climat_annuel_file) || is.null(input$climat_mensuel_file)) {
+      showNotification(
+        "Veuillez téléverser les deux fichiers climatiques (annuel et mensuel).",
+        type = "error",
+        duration = 5
+      )
+      return()
+    }
+
+    # Lire les fichiers climatiques téléversés
+    tryCatch({
+      # Lire le fichier climat annuel
+      climat_annuel <- read.csv(input$climat_annuel_file$datapath,
+                                header = TRUE,
+                                sep = ";")
+
+      # Lire le fichier climat mensuel
+      climat_mensuel <- read.csv(input$climat_mensuel_file$datapath,
+                                 header = TRUE,
+                                 sep = ";")
+
+      # Vérifier les fichiers avec les fonctions du package Artemis
+      erreurs_annuel <- verifier_colonnes_ClimAn(climat_annuel)
+      erreurs_annuel <- c(erreurs_annuel, validation_annuel(data(), climat_annuel,input$rcp))
+      erreurs_mensuel <- verifier_colonnes_Clim(climat_mensuel)
+      erreurs_mensuel <- c(erreurs_mensuel, validation_mensuel(data(), climat_mensuel,input$rcp))
+      erreurs_mensuel <- c(erreurs_mensuel, valider_Mois(climat_mensuel,input$rcp) )
+
+
+      # Valider que le fichier annuel et mensuel sont cohérents
+      erreurs_comparaison <- comparer_annee_scenario(data(), climat_annuel,climat_mensuel,input$rcp)
+      #erreurs_comparaison <- NULL
+
+      # Vérifier s'il y a des erreurs
+      if (length(erreurs_annuel) > 0 || length(erreurs_mensuel) > 0 || length(erreurs_comparaison) > 0 ) {
+        showModal(modalDialog(
+          div(class = "",
+             h3("Erreurs dans les fichiers climatiques")),
+          div( class="overflow-auto",
+            style = "max-height: 400px;",
+
+            # Section pour l'afficahge des erreurs du fichier climat annuel
+            if (length(erreurs_annuel) > 0) {
+              div(class = "alert alert-danger mb-3",
+                h6(class = "mt-0 mb-2",
+                  paste0( "Erreurs dans le fichier climat annuel (",
+                    input$climat_annuel_file$name,"):"
+                  )
+                ),
+                tags$ul(class = "small ps-3 mb-0",
+                  lapply(erreurs_annuel, tags$li)
+                )
+              )
+            },
+
+            # Section pour l'afficahge des erreurs du fichier climat mensuel
+            if (length(erreurs_mensuel) > 0) {
+              div(class = "alert alert-danger mb-3",
+                h6(class = "mt-0 mb-2",
+                  paste0( "Erreurs dans le fichier climat mensuel (",
+                    input$climat_mensuel_file$name, "):"
+                  )
+                ),
+                tags$ul(
+                  class = "small ps-3 mb-0",
+                  lapply(erreurs_mensuel, tags$li)
+                )
+              )
+            },
+            # Section pour l'affichage des incohérences entre fichiers
+            if (length(erreurs_comparaison) > 0 ){
+              div(
+                class = "alert alert-warning",
+                h6( class = "mt-0 mb-2",
+                  paste0( "Incohérence entre les fichiers : ",
+                    input$climat_annuel_file$name,
+                    " et ",
+                    input$climat_mensuel_file$name
+                  )
+                ),
+                tags$ul(
+                  class = "small ps-3 mb-0",
+                  lapply(erreurs_comparaison, tags$li)
+                )
+              )
+
+            }
+          ),
+          # Footer
+          footer = tagList(
+
+            div(class = "text-center w-100",
+              p(class = "fst-italic mb-2",
+                "Veuillez corriger les erreurs et réimporter les fichiers."
+              ),
+              modalButton("Fermer")
+            )
+          ),
+
+          size = "l",
+          easyClose = TRUE
+        ))
+
+        return()
+      } else {
+        # Si aucune erreur, stocker les données dans les variables réactives
+        rv$climat_annuel <- climat_annuel
+        rv$climat_mensuel <- climat_mensuel
+        rv$max_annees_simulation <- floor(extraire_nb_annee(climat_annuel,AnneeDep=as.numeric(format(Sys.Date(), "%Y")))/10)*10
+
+        # Afficher une notification de succès
+        showNotification(
+          "Fichiers climatiques validés et importés avec succès !",
+          type = "message",
+          duration = 5
+        )
+
+        # Mettre à jour l'état
+        rv$extraction_completed <- TRUE
+
+        #simulation_ui()
+      }
+    }, error = function(e) {
+      # Afficher une notification d'erreur
+      showNotification(
+        paste("Erreur lors de l'importation des fichiers climatiques:", e$message),
+        type = "error",
+        duration = 10
+      )
+    })
   })
 
 }
