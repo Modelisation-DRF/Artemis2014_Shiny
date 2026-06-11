@@ -44,9 +44,17 @@ ui <- fluidPage(
       var collapseElement = document.getElementById('collapse_import');
       var bsCollapse = new bootstrap.Collapse(collapseElement, {
         toggle: false }); bsCollapse.hide();});")),
+    # Ouverture/fermture section tbe
     tags$script(HTML("
       Shiny.addCustomMessageHandler('toggle_tbe', function(msg){
       $('#enable_tbe').prop('disabled', msg.disable === true).prop('checked',false).trigger('change') ;
+      if (msg.checked === true) { $('#tbe_details').prop('open', true);}
+      });   ")),
+    # Ouverture/fermeture section coupe
+    tags$script(HTML("
+      Shiny.addCustomMessageHandler('toggle_coupe', function(msg){
+      $('#enable_coupe').prop('disabled', msg.disable === true).prop('checked',true) ;
+      if (msg.checked === true) { $('#coupe_details').prop('open', true);}
       });   ")),
 
   ),
@@ -1491,7 +1499,7 @@ server <- function(input, output, session) {
 
             div(class = "pe-2 mt-1",
 
-              tags$details(
+              tags$details(id="coupe_details",
                 class = "border rounded p-2 bg-light",
 
                 tags$summary(
@@ -1541,7 +1549,7 @@ server <- function(input, output, session) {
             condition = "input.enable_tbe == true",
 
             div(class = "pe-2 mt-1",
-              tags$details( class = "border rounded p-2 bg-light",
+              tags$details(id="tbe_details", class = "border rounded p-2 bg-light",
                 tags$summary( class = "fw-semibold",
                   "Sélectionnez les décennies avec défoliation sévère :"
                 ),
@@ -1568,6 +1576,15 @@ server <- function(input, output, session) {
       })
   }
 
+  # Activation/désactivation de la case coupe
+  observeEvent(input$enable_coupe, {
+
+    if (input$enable_coupe) {
+      session$sendCustomMessage(
+        "toggle_coupe", list(disable = FALSE, checked = TRUE) )    }
+  })
+
+
   #Observateur pour la coupe
   observeEvent(input$enable_coupe, {
     if (input$enable_coupe && !is.null(input$annees_simulation)) {
@@ -1592,7 +1609,7 @@ server <- function(input, output, session) {
       desactiver_tbe <- !(input$module_accroissement == "original" &&
                             input$module_mortalite     == "original")
       # enabled si au moins un est "original"
-      session$sendCustomMessage("toggle_tbe", list(disable = desactiver_tbe))
+      session$sendCustomMessage("toggle_tbe", list(disable = desactiver_tbe, checked = !desactiver_tbe))
     }
   )
 
@@ -1901,6 +1918,326 @@ server <- function(input, output, session) {
     }
   })
 
+  observe({
+    if (!is.null(input$annees_simulation) && !is.null(input$enable_coupe) && input$enable_coupe) {
+      new_horizon <- input$annees_simulation / 10
+
+      # Redimensionner le vecteur coupe_on
+      if (is.null(rv$coupe_on_vector) || length(rv$coupe_on_vector) != new_horizon) {
+        old_vector <- rv$coupe_on_vector
+        rv$coupe_on_vector <- rep(NA_real_, new_horizon)
+
+        # Conserver les anciennes valeurs si elles existent
+        if (!is.null(old_vector) && length(old_vector) > 0) {
+          copy_length <- min(length(old_vector), new_horizon)
+          rv$coupe_on_vector[1:copy_length] <- old_vector[1:copy_length]
+        }
+      }
+
+      # Redimensionner la liste coupe_modif
+      if (is.null(rv$coupe_modif_vector) || length(rv$coupe_modif_vector) != new_horizon) {
+        old_list <- rv$coupe_modif_vector
+        rv$coupe_modif_vector <- vector("list", new_horizon)
+
+        # Conserver les anciennes valeurs si elles existent
+        if (!is.null(old_list) && length(old_list) > 0) {
+          copy_length <- min(length(old_list), new_horizon)
+          rv$coupe_modif_vector[1:copy_length] <- old_list[1:copy_length]
+        }
+      }
+    }
+  })
+
+  # Observer similaire pour TBE
+  observe({
+    if (!is.null(input$annees_simulation) && !is.null(input$enable_tbe) && input$enable_tbe) {
+      new_horizon <- input$annees_simulation / 10
+
+      # Redimensionner le vecteur TBE
+      if (is.null(rv$tbe_vector) || length(rv$tbe_vector) != new_horizon) {
+        old_vector <- rv$tbe_vector
+        rv$tbe_vector <- rep(0, new_horizon)
+
+        # Conserver les anciennes valeurs si elles existent
+        if (!is.null(old_vector) && length(old_vector) > 0) {
+          copy_length <- min(length(old_vector), new_horizon)
+          rv$tbe_vector[1:copy_length] <- old_vector[1:copy_length]
+        }
+      }
+    }
+  })
+
+  # Ajout d'un observateur pour l'action de lancer la simulation - avec restrictions des options
+  observeEvent(input$lancer_simulation, {
+    # Vérifier que tous les paramètres sont sélectionnés
+    if (is.null(input$recrutement_ajuste) || is.null(input$coupe_partielle) || is.null(input$mch) ||
+        is.null(input$module_accroissement) || is.null(input$module_mortalite) ||
+        is.null(input$annees_simulation)) {
+
+      showNotification(
+        "Veuillez sélectionner tous les paramètres avant de lancer la simulation.",
+        type = "error",
+        duration = 5
+      )
+      return()
+    }
+
+    # Vérifier que le nombre d'années est un multiple de 10
+    if (input$annees_simulation %% 10 != 0) {
+      showNotification(
+        "Le nombre d'années de simulation doit être un multiple de 10.",
+        type = "error",
+        duration = 5
+      )
+      return()
+    }
+
+    # Vérifier que le nombre d'années est inférieur ou égal au nombre d'années du fichier climatique
+    if (input$extraction_choice=="upload"){
+
+      if (input$annees_simulation > rv$max_annees_simulation) {
+        showNotification(
+          "Le nombre d'années de simulation dépasse l'horizon des données climatiques",
+          type = "error",
+          duration = 5
+        )
+        return()
+      }
+    }
+
+    # Si données climatiques sont requises mais pas disponibles (pas pour option "none")
+    if (!is.null(rv$extraction_option) && rv$extraction_option != "none" &&
+        (is.null(rv$climat_annuel) || is.null(rv$climat_mensuel))) {
+      showNotification(
+        "Les données climatiques sont nécessaires pour lancer la simulation.",
+        type = "error",
+        duration = 5
+      )
+      return()
+    }
+
+    # Variable pour savoir si l'option "none" a été choisie (pas de données climatiques)
+    no_climate_data <- !is.null(rv$extraction_option) && rv$extraction_option == "none"
+
+    # Vérification supplémentaire pour les options incompatibles avec l'absence de données climatiques
+    if (no_climate_data) {
+      if (input$module_accroissement == "brt" || input$module_accroissement == "gam") {
+        showNotification(
+          "Les modules d'accroissement Wang 2023 et D'Orangeville 2018 nécessitent des données climatiques.",
+          type = "error",
+          duration = 5
+        )
+        return()
+      }
+
+      if (input$module_mortalite == "que") {
+        showNotification(
+          "Le module de mortalité Power 2025 nécessite des données climatiques.",
+          type = "error",
+          duration = 5
+        )
+        return()
+      }
+
+      if (input$evolution_climat == "yes") {
+        showNotification(
+          "L'évolution du climat nécessite des données climatiques.",
+          type = "error",
+          duration = 5
+        )
+        return()
+      }
+    }
+
+    # Afficher un message de traitement
+    showModal(modalDialog(
+        title = "Simulation en cours",
+        div(class = "text-center",
+
+          img(
+            src = "https://i.gifer.com/origin/b4/b4d657e7ef262b88eb5f7ac021edda87.gif",
+            height = "100px",
+            class = "mb-3"
+          ),
+
+          p(class = "fw-bold mb-2",
+            "Simulation en cours..."
+          ),
+
+          p(class = "small text-muted",
+            "Cela peut prendre plusieurs minutes. Veuillez patienter."
+          )
+        ),
+
+        footer = NULL,
+        easyClose = FALSE,
+        backdrop = "static"
+      )
+    )
+
+    # Conversion des choix d'interface en paramètres pour la fonction
+    Tendance <- ifelse(input$recrutement_ajuste == "oui", 1, 0)
+    Residuel <- ifelse(input$coupe_partielle == "oui", 1, 0)
+    mch <- ifelse(input$mch == "oui", 1, 0)
+
+    if (!is.null(rv$extraction_option) && rv$extraction_option == "extract" && !is.null(rv$extraction_horizon)) {
+      Horizon <- rv$extraction_horizon
+    } else {
+      # Sinon, utilisez le nombre d'années divisé par 10
+      Horizon <- input$annees_simulation/10
+    }
+
+
+
+    # Si l'utilisateur a choisi "none" (pas de données climatiques), force EvolClim à 0
+    # et force certains modules à "ORI"
+    if (no_climate_data) {
+      EvolClim <- 0
+      AccModif <- "ORI"  # Forcer le module d'accroissement à Original
+      MortModif <- "ORI"  # Forcer le module de mortalité à Original
+    } else {
+      EvolClim <- ifelse(input$evolution_climat == "yes", 1, 0)
+      AccModif <- switch(input$module_accroissement,
+                         "original" = "ORI",
+                         "brt" = "BRT",
+                         "gam" = "GAM",
+                         "fortin"="QUE")
+      MortModif <- switch(input$module_mortalite,
+                          "original" = "ORI",
+                          "que" = "QUE",
+                          "caneu" = "CANEU")
+    }
+
+    # Déterminer le RCP à utiliser
+    RCP_value <- ifelse(!is.null(input$rcp),
+                        input$rcp,
+                        "RCP45")  # Valeur par défaut
+
+
+    coupe_on <- if (!is.null(input$enable_coupe) && input$enable_coupe) {
+      rv$coupe_on_vector
+    } else {
+      NULL
+    }
+
+    coupe_modif <- if (!is.null(input$enable_coupe) && input$enable_coupe) {
+      as.list(rv$coupe_modif_vector)
+    } else {
+      NULL
+    }
+
+    tbe <- if (!is.null(input$enable_tbe) && input$enable_tbe) {
+      rv$tbe_vector
+    } else {
+      NULL
+    }
+
+    # Exécuter la fonction simulateurArtemis dans un bloc tryCatch pour gérer les erreurs
+    result <- tryCatch({
+      # Appel à la fonction simulateurArtemis avec les paramètres appropriés
+      simulateurArtemis(
+        Data_ori = data(),
+        Horizon = Horizon,
+        ClimMois = rv$climat_mensuel,
+        ClimAn = rv$climat_annuel,
+        Tendance = Tendance,
+        Residuel = Residuel,
+        EvolClim = EvolClim,
+        AccModif = AccModif,
+        MortModif = MortModif,
+        RCP = RCP_value,
+        Coupe_ON = coupe_on,
+        Coupe_modif = coupe_modif,
+        TBE = tbe,
+        MCH = mch
+      )
+    }, error = function(e) {
+      removeModal()
+      showNotification(
+        paste("Erreur lors de la simulation:", e$message),
+        type = "error",
+        duration = 10
+      )
+      return(NULL)
+    })
+
+    # Stocker le résultat dans une variable réactive pour le téléchargement
+    rv$resultats_simulation <- result
+
+    # Fermer la boîte de dialogue si l'opération a réussi
+    if (!is.null(result)) {
+      removeModal()
+
+      # Définir les valeurs réelles utilisées pour les modules en cas d'absence de données climatiques
+      module_acc_utilise <- if (no_climate_data) "Original" else switch(input$module_accroissement,
+                                                                        "original" = "Original",
+                                                                        "brt" = "Wang 2023",
+                                                                        "gam" = "D'Orangeville 2018",
+                                                                        "fortin"= "Fortin 2026")
+
+      module_mort_utilise <- if (no_climate_data) "Original" else switch(input$module_mortalite,
+                                                                         "original" = "Original",
+                                                                         "que" = "Power 2025",
+                                                                         "caneu" = "Power 2026")
+
+      # Afficher un résultat de simulation
+      showModal(modalDialog(title = "Simulation terminée",
+
+        div(class = "text-center",
+          icon( "check-circle",
+          class = "fa-3x text-primary mb-2" ),
+            div(class = "fw-bold fs-3 mb-2",
+              "La simulation a été effectuée avec succès !"),
+
+            # Résumé
+          div(class = "border rounded p-2 bg-light text-start mt-2",
+
+              div(class = "fw-semibold mb-1",
+                "Paramètres utilisés :"
+              ),
+
+              tags$ul(class = "mb-0 ps-3",
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Paramètres de recrutement ajustés : ", input$recrutement_ajuste)),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Coupe partielle récente : ", input$coupe_partielle)),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Maladie corticale du hêtre : ", input$mch)),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Module d'accroissement : ", module_acc_utilise)),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Module de mortalité : ", module_mort_utilise)),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Nombre d'années : ", input$annees_simulation)),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Défoliation TBE : ", ifelse(input$enable_tbe, "Oui", "Non"))),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Traitement de coupe : ", ifelse(input$enable_coupe, "Oui", "Non"))),
+
+                if (input$enable_coupe) {
+                  div(class = "text-body", style = "margin-bottom: 1px; padding: 0;",
+                    uiOutput("display_coupes")
+                  )
+                },
+
+                if (no_climate_data) {
+                  tags$li(style = "margin-bottom: 1px; padding: 0;","Évolution du climat : Non (données climatiques non utilisées)")
+                } else {
+                  tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Évolution du climat : ", ifelse(input$evolution_climat == "yes", "Oui", "Non")))
+                },
+
+                if (!no_climate_data) {
+                  tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Scénario RCP : ", RCP_value))
+                }
+              )
+            )
+          ),
+
+          footer = actionButton(
+            "close_simulation",
+            "Suivant",
+            class = "btn btn-primary"
+          ),
+
+          easyClose = FALSE,
+          backdrop = "static"
+        )
+      )
+
+    }
+  })
 
 
 
