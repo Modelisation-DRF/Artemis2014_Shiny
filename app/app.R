@@ -43,12 +43,17 @@ ui <- fluidPage(
     Shiny.addCustomMessageHandler('collapse_import_close', function(message) {
       var collapseElement = document.getElementById('collapse_import');
       var bsCollapse = new bootstrap.Collapse(collapseElement, {
-        toggle: false
-      });
-      bsCollapse.hide();
-    });
-  "))
+        toggle: false }); bsCollapse.hide();});")),
+    tags$script(HTML("
+      Shiny.addCustomMessageHandler('toggle_tbe', function(msg){
+      $('#enable_tbe').prop('disabled', msg.disable === true).prop('checked',false).trigger('change') ;
+      });   ")),
 
+  ),
+
+  # Solution temporaire pour faire fonctionner les renderUI des inputs (important de laisser ça là)
+  div(style = "display:none;",
+      selectInput("dummy_hidden", NULL, choices = "")
   ),
 
   # Header gouvernemental
@@ -891,7 +896,7 @@ server <- function(input, output, session) {
       # Mettre à jour l'état indiquant que le processus est terminé
       rv$extraction_completed <- TRUE
 
-      #simulation_ui()
+      simulation_ui()
 
     }
   })
@@ -1019,7 +1024,13 @@ server <- function(input, output, session) {
         # Mettre à jour l'état
         rv$extraction_completed <- TRUE
 
-        #simulation_ui()
+        # Collapse importation de données
+        session$sendCustomMessage(
+          type = "collapse_import_close",
+          message = list()
+        )
+
+        simulation_ui()
       }
     }, error = function(e) {
       # Afficher une notification d'erreur
@@ -1030,6 +1041,868 @@ server <- function(input, output, session) {
       )
     })
   })
+
+  # Rendre le bouton d'extraction final (option simuler les données climatiques)
+  output$extraction_button_final <- renderUI({
+    req(input$annee_depart, input$horizon, input$rcp)
+
+    # Cas erreur
+    if (input$horizon < 10 || input$horizon %% 10 != 0) {
+
+      div(class = "mt-2 small text-danger",
+        icon("exclamation-triangle", class = "me-1"),
+        "L'horizon doit être un multiple de 10 d'au moins 10 ans."
+      )
+
+    } else {
+      # Cas valide
+      div(
+        class = "mt-0 w-100 justify-content-center",
+
+        div(
+          actionButton(
+            "extract_climate",
+            "Simuler les données climatiques",
+            class = "btn btn-primary w-100",
+            icon = icon("cloud-download-alt")
+          )
+        ),
+
+        div(  class = "small text-muted text-center mt-1",
+
+          paste0(
+            "Période : ",
+            input$annee_depart, " - ",
+            input$annee_depart + input$horizon,
+            " | Scénario : ",
+            ifelse(input$rcp == "RCP45", "RCP 4.5", "RCP 8.5")
+          )
+        )
+
+      )
+
+    }
+  })
+
+  # Action pour l'extraction climatique
+  observeEvent(input$extract_climate, {
+    # Vérifier les paramètres
+    req(input$annee_depart, input$horizon, input$rcp)
+
+    # S'assurer que l'horizon est d'au moins 10 ans
+    if (input$horizon < 10) {
+      showNotification(
+        "L'horizon doit être d'au moins 10 ans.",
+        type = "error",
+        duration = 5
+      )
+      return()
+    }
+
+    # Récupérer les paramètres pour le résumé
+    annee_depart <- input$annee_depart
+    horizon <- input$horizon
+    annee_fin <- annee_depart + horizon
+    rcp <- input$rcp
+
+    showModal(modalDialog(
+      title = "Simulation en cours",
+
+      div(class = "text-center",
+
+        img(
+          src = "https://i.gifer.com/origin/b4/b4d657e7ef262b88eb5f7ac021edda87.gif",
+          height = "100px",
+          class = "mb-3"
+        ),
+
+        p("Simulation des données climatiques en cours..."),
+
+        div(class = "small text-muted",
+
+          paste0(
+            "Paramètres : Année de départ = ", annee_depart,
+            ", Horizon = ", horizon, " ans (jusqu'à ", annee_fin,
+            "), Scénario = ", rcp
+          )
+        )
+      ),
+
+      footer = NULL,
+      easyClose = FALSE
+    ))
+
+    # Appeler la fonction GenereClimat
+    result <- tryCatch({
+      GenereClimat(Data_Ori= data() ,AnneeDep = annee_depart,AnneeFin = annee_fin,  RCP = rcp)
+    }, error = function(e) {
+      showNotification(paste("Erreur lors de la simulation:", e$message), type = "error", duration = 10)
+      return(NULL)
+    })
+
+    # Stocker les résultats dans les variables réactives
+    if (!is.null(result) && length(result) == 2) {
+      rv$climat_annuel <- result[[1]]
+      rv$climat_mensuel <- result[[2]]
+      rv$extraction_horizon <- horizon/10  # Stocker l'horizon utilisé pour l'extraction
+    }
+
+
+    # Fermer la boîte de dialogue
+    removeModal()
+
+    # Afficher un résultat d'extraction avec les paramètres utilisés
+    showModal(modalDialog(
+      title = "Simulation terminée",
+
+      div(class = "text-center",
+        icon( "check-circle",
+          class = "fa-3x text-primary mb-2"
+        ),
+
+        div(class = "fw-bold fs-3 mb-2",
+          "Les données climatiques ont été extraites avec succès !"
+        ),
+
+        p("Vous pouvez télécharger les fichiers ci-dessous :"),
+
+        # Bloc paramètres
+        div(class = "border rounded p-2 bg-light text-start mt-2",
+
+          div(
+            class = "fw-semibold mb-1",
+            "Paramètres utilisés :"
+          ),
+
+          tags$ul(class = "mb-0 ps-3",
+            tags$li(style = "margin-bottom: 1px; padding: 0;", paste0("Année de départ : ", input$annee_depart)),
+            tags$li(style = "margin-bottom: 1px; padding: 0;", paste0("Horizon : ", input$horizon)),
+            tags$li(style = "margin-bottom: 1px; padding: 0;", paste0("Scénario climatique : ", input$rcp))
+          )
+        ),
+
+        # Boutons download
+        div(class = "d-flex justify-content-center gap-2 mt-3",
+
+          downloadButton(
+            "download_annuel",
+            "Climat annuel",
+            class = "btn btn-primary"
+          ),
+
+          downloadButton(
+            "download_mensuel",
+            "Climat mensuel",
+            class = "btn btn-primary"
+          )
+        )
+      ),
+
+      # Bouton suivant
+      footer = actionButton(
+        "close_extraction",
+        "Suivant",
+        class = "btn btn-primary"
+      ),
+
+      easyClose = FALSE,
+      backdrop = "static"
+    ))
+  })
+
+  # Télécharger simulation annuelle
+  output$download_annuel <- downloadHandler(
+    filename = function() {
+      paste("climat_annuel_", input$annee_depart, "_", input$annee_depart + input$horizon - 1, "_", input$rcp, ".csv", sep = "")
+    },
+    content = function(file) {
+
+      write.table(rv$climat_annuel, file, sep = ";", row.names = FALSE)
+    }
+  )
+
+  # Télécharger simulation mensuelle
+  output$download_mensuel <- downloadHandler(
+    filename = function() {
+      paste("climat_mensuel_", input$annee_depart, "_", input$annee_depart + input$horizon - 1, "_", input$rcp, ".csv", sep = "")
+    },
+    content = function(file) {
+      write.table(rv$climat_mensuel, file, sep = ";", row.names = FALSE)
+    }
+  )
+
+  # Fermer la boîte de dialogue d'extraction
+  observeEvent(input$close_extraction, {
+    removeModal()
+
+    # Effacer les paramètres et le bouton d'extraction
+    output$extraction_button <- renderUI({})
+    output$extraction_button_final <- renderUI({})
+
+    simulation_ui()
+
+    # Mettre à jour l'état
+    rv$extraction_completed <- TRUE
+  })
+
+  # Observateur pour le choix de simulation - avec désactivation des options supplémentaires
+  simulation_ui <- function()
+  {
+    # Rediriger vers le panel de simulation avec les nouvelles options
+    output$simulation_message <- renderUI({
+      # Variable pour savoir si l'option "none" a été choisie
+      no_climate_data <- !is.null(rv$extraction_option) && rv$extraction_option == "none"
+
+      extracted_climate_data <- !is.null(rv$extraction_option) && rv$extraction_option == "extract"
+
+      div(class = "mt-1 ms-2",
+
+        # Paramètres de recrutement
+        div(class = "mt-3",
+
+          div(class = "fw-bold text-body mb-1",
+            "Paramètres de recrutement ajustés"
+          ),
+
+          div(class = "small",
+            radioButtons(
+              "recrutement_ajuste",
+              NULL,
+              choices = list("Non" = "non", "Oui" = "oui"),
+              selected = "non",
+              inline = TRUE
+            )
+          )
+        ),
+
+        # Coupe partielle
+        div(class = "mt-3",
+
+          div(class = "fw-bold text-body mb-1",
+            "Coupe partielle réalisée depuis moins de 10 ans"
+          ),
+
+          div(class = "small",
+            radioButtons(
+              "coupe_partielle",
+              NULL,
+              choices = list("Non" = "non", "Oui" = "oui"),
+              selected = "non",
+              inline = TRUE
+            )
+          )
+        ),
+
+        # Maladie corticale du hêtre
+        div(class = "mt-3",
+
+          div(class = "fw-bold text-body mb-1",
+            "Maladie corticale du hêtre"
+          ),
+
+          div(class = "small",
+            radioButtons(
+              "mch",
+              NULL,
+              choices = list("Non" = "non", "Oui" = "oui"),
+              selected = "non",
+              inline = TRUE
+            )
+          )
+        ),
+
+        # Module d'accroissement
+        div(class = "mt-3",
+
+          # Titre
+          div(class = "fw-bold text-body mb-1",
+            "Module d'accroissement"
+          ),
+            div(class = "pe-2",
+              # selectInput
+              selectInput(
+                inputId = "module_accroissement",
+                label = NULL,
+                choices = list(
+                  "Original" = "original",
+                  "Wang 2023" = "brt",
+                  "D'Orangeville 2018" = "gam",
+                  "Fortin 2026" = "fortin"
+                ),
+                selected = "original",
+                selectize = FALSE
+              )),
+
+          # Désactivation conditionnelle
+
+          if (no_climate_data){
+            tagList(
+              tags$script(HTML("
+        $(document).ready(function() {
+          $('#module_accroissement option[value=\"brt\"]').prop('disabled', true);
+          $('#module_accroissement option[value=\"gam\"]').prop('disabled', true);
+          $('#module_accroissement option[value=\"fortin\"]').prop('disabled', true);
+        });
+      ")),
+            )
+
+          }
+        ),
+
+        # Module de mortalité
+        div(class = "mt-3",
+
+          # Titre
+          div(class = "fw-bold text-body mb-1",
+            "Module de mortalité"
+          ),
+
+          div(class = "pe-2",
+
+            selectInput(
+              inputId = "module_mortalite",
+              label = NULL,
+              choices = list(
+                "Original" = "original",
+                "Power 2025" = "que",
+                "Power 2026" = "caneu"
+              ),
+              selected = "original",
+              selectize = FALSE
+            )
+          ),
+
+          # Désactivation conditionnelle
+          if (no_climate_data) {
+            tagList(
+              tags$script(HTML("
+        $(document).ready(function() {
+          $('#module_mortalite option[value=\"que\"]').prop('disabled', true);
+          $('#module_mortalite option[value=\"caneu\"]').prop('disabled', true);
+        });
+      ")),
+
+              # Message utilisateur pour module d'accroissement et de mortalité
+              div(class = "small fst-italic text-muted mt-1 pe-2",
+                icon("info-circle", class = "me-1"),
+                "Les modules d'accroissement et de mortalité avancés sont désactivés ",
+                "car aucune donnée climatique n'est utilisée."
+              )
+            )
+          }
+        ),
+        # Nombre d'années de simulation
+        div(class = "mt-3",
+
+          # Titre
+          div(class = "fw-bold text-body mb-1",
+            "Nombre d'années de simulation (multiple de 10)"
+          ),
+
+          div(class = "pe-2",
+            numericInput(
+              "annees_simulation",
+              NULL,
+              value = if (extracted_climate_data && !is.null(rv$extraction_horizon)) {
+                rv$extraction_horizon * 10
+              } else {
+                10
+              },
+              min = 10,
+              max = if (!no_climate_data) rv$max_annees_simulation else NA,
+              step = 10
+            )
+          ),
+
+          # Désactivation conditionnelle
+          if (extracted_climate_data && !is.null(rv$extraction_horizon)) {
+            tagList(
+              tags$script(HTML("
+        $(document).ready(function() {
+          $('#annees_simulation').prop('disabled', true);
+        });
+      ")),
+
+              # Message utilisateur
+              div(class = "small fst-italic text-muted mt-1 pe-2",
+                icon("info-circle", class = "me-1"),
+                "Ce champ est automatiquement défini selon l'horizon de simulation climatique."
+              )
+            )
+          }
+        ),
+
+        # Évolution du climat
+        div(class = "mt-3",
+
+          # Titre
+          div(class = "fw-bold text-body mb-1",
+            "Évolution du climat"
+          ),
+          div(class = "pe-2 small",
+
+            radioButtons(
+              "evolution_climat",
+              NULL,
+              choices = list("Oui" = "yes", "Non" = "no"),
+              selected = if (no_climate_data) "no" else "yes",
+              inline = TRUE
+            )
+          ),
+
+          # Désactivation conditionnelle
+          if (no_climate_data) {
+            tagList(
+              tags$script(HTML("
+        $(document).ready(function() {
+          $('input[name=\"evolution_climat\"]').prop('disabled', true);
+        });
+      ")),
+
+              # Message utilisateur
+              div(class = "small fst-italic text-muted mt-1 pe-2",
+                icon("info-circle", class = "me-1"),
+                "Option désactivée car aucune donnée climatique n'est utilisée."
+              )
+            )
+          }
+        ),
+
+        # Traitement de coupe
+        div(class = "mt-3",
+
+          # Titre
+          div(class = "fw-bold text-body mb-1",
+            "Traitement de coupe"
+          ),
+
+          # Checkbox
+          div(class = "pe-2 small",
+            checkboxInput(
+              "enable_coupe",
+              "Activer les traitements de coupe",
+              value = FALSE
+            )
+          ),
+
+          # Panneau conditionnel
+          conditionalPanel(
+            condition = "input.enable_coupe == true",
+
+            div(class = "pe-2 mt-1",
+
+              tags$details(
+                class = "border rounded p-2 bg-light",
+
+                tags$summary(
+                  class = "fw-semibold",
+                  "Configurer les traitements de coupe par décennie"
+                ),
+
+                div(class = "mt-2",
+                  uiOutput("coupe_config_ui")
+                )
+              )
+            )
+          )
+        ),
+
+        # TBE
+        div(class = "mt-3",
+
+          # Titre
+          div(class = "fw-bold text-body mb-1",
+            "Tordeuse des bourgeons de l'épinette (TBE)"
+          ),
+
+          # Checkbox
+          div(class = "pe-2 small",
+            checkboxInput(
+              "enable_tbe",
+              "Activer défoliation TBE",
+              value = FALSE
+            )
+          ),
+
+          # Message utilisateur
+          conditionalPanel(
+            condition = "input.module_mortalite != 'original' || input.module_accroissement != 'original'",
+
+            div(class = "small fst-italic text-muted mt-1 pe-2",
+              icon("info-circle", class = "me-1"),
+              "La défoliation TBE s'active uniquement avec les modules ",
+              "'Original' pour l'accroissement et la mortalité."
+            )
+          ),
+
+
+          # Panneau conditionnelle
+          conditionalPanel(
+            condition = "input.enable_tbe == true",
+
+            div(class = "pe-2 mt-1",
+              tags$details( class = "border rounded p-2 bg-light",
+                tags$summary( class = "fw-semibold",
+                  "Sélectionnez les décennies avec défoliation sévère :"
+                ),
+
+                div(class = "mt-2",
+                  uiOutput("tbe_config_ui")
+                )
+              )
+            )
+          )
+        ),
+
+        # Bouton pour lancer la simulation
+        div(  class = "mt-3 mb-3 pe-2",
+
+          actionBttn(
+            "lancer_simulation",
+            "Lancer la simulation",
+            class = "btn btn-primary w-100",
+            icon = icon("play-circle")
+          )
+        )
+      )
+      })
+  }
+
+  #Observateur pour la coupe
+  observeEvent(input$enable_coupe, {
+    if (input$enable_coupe && !is.null(input$annees_simulation)) {
+      horizon <- input$annees_simulation / 10
+      # Initialiser seulement si pas déjà fait
+      if (is.null(rv$coupe_on_vector)) {
+        rv$coupe_on_vector <- rep(NA_real_, horizon)
+        rv$coupe_modif_vector <- vector("list", horizon)
+      }
+    } else {
+      # Réinitialiser les vecteurs quand la case est décochée
+      rv$coupe_on_vector <- NULL
+      rv$coupe_modif_vector <- NULL
+    }
+  })
+
+  # Activation/désactivation de la case TBE selon module d'accroissement et de mortalité
+  observeEvent(
+    list(input$module_accroissement, input$module_mortalite),
+    ignoreInit = TRUE,
+    {
+      desactiver_tbe <- !(input$module_accroissement == "original" &&
+                            input$module_mortalite     == "original")
+      # enabled si au moins un est "original"
+      session$sendCustomMessage("toggle_tbe", list(disable = desactiver_tbe))
+    }
+  )
+
+  # Observateur pour TBE
+  observeEvent(input$enable_tbe, {
+    if (input$enable_tbe && !is.null(input$annees_simulation)) {
+      horizon <- input$annees_simulation / 10
+      # Initialiser seulement si pas déjà fait
+      if (is.null(rv$tbe_vector)) {
+        rv$tbe_vector <- rep(0, horizon)
+      }
+    } else {
+      # Réinitialiser le vecteur quand la case est décochée
+      rv$tbe_vector <- NULL
+    }
+  })
+
+  # Section lorsque Traitement de coupe est activé
+  output$coupe_config_ui <- renderUI({
+
+    req(input$enable_coupe)
+    horizon <- input$annees_simulation / 10
+
+    isolate({
+
+
+      div(class= "small",
+          div(class = "fw-bold text-body mb-1",
+              "Décennie de coupe: "
+          ),
+        selectInput(
+          "decennie_coupe",
+          label = NULL,
+          choices = setNames( 0:(horizon - 1), paste("Décennie", 0:(horizon - 1), "-", 1:horizon)
+          ),selected = NULL
+        ),
+        div(class = "fw-bold text-body mb-1",
+            "Type de coupe: "
+        ),
+        selectInput(
+          "type_coupe",
+          label= NULL,
+          choices = c("Aucune coupe" = "NA",
+                      setNames(c(0:1,6:9,12:19), c("Coupe d'amélioration","Coupe d'éclaircie","Coupe de jardinage","Coupe progressive",
+                                                   "Éclaircie commerciale","Éclaicie sélective","Coupe progressive (CPI_CP)",
+                                                   "Coupe progressive (CPI_RL)","Coupe réserve semanciers","Jardinage CIMOTFF",
+                                                   "Jarinage gr. arbres CIMOTFF", "CPI_CP CIMOTFF","CPI_RL CIMOTFF","CPRS"))),
+          selected = "NA"
+        ),
+
+        # Section pour le type de modificateur
+        div(class = "fw-bold text-body mb-1",
+            "Type de modificateur: "
+        ),
+        radioButtons(
+          "type_modif",
+          label = NULL,
+          choices = c(
+            "Modificateur simple (même valeur pour toutes les essences)" = "simple",
+            "Fichier (modificateurs par essence)" = "excel"
+          ),
+          selected = "simple",
+          inline = TRUE
+        ),
+
+        # Interface conditionnelle selon le choix
+        uiOutput("modificateur_ui"),
+
+        # Button effacer
+        actionButton(class = "btn btn-danger",
+          "clear_coupes",
+          "Effacer toutes les coupes",
+          width= "100%"
+        ),
+
+        # Affichage du vecteur actuel
+        div(class = "fw-bold text-body mb-1",
+            "Configuration actuelle des coupes: "
+        ),
+        verbatimTextOutput("display_coupes")
+      )
+    })
+  })
+
+  output$modificateur_ui <- renderUI({
+
+    req(input$type_modif)
+
+    if (input$type_modif == "simple") {
+      div(
+      div(class = "fw-bold text-body mb-1",
+          "Modificateur (%)"
+      ),
+      div(class= "mb-3",
+      numericInput("modif_coupe", label=NULL,
+          value = 0, min = -80, max = 160, step = 5)))
+
+    } else {
+      div(
+        div(class = "fw-bold text-body mb-1",
+            "Fichier "
+        ),
+
+      fileInput("modif_excel_file", label=NULL,
+                buttonLabel = "Parcourir",
+                placeholder = "Aucun fichier sélectionné",
+                accept = c(".xlsx", ".xls", ".csv"),
+                width= "100%"),
+
+      div(style = "margin-top:-12px;",
+          class = "small fst-italic text-muted mb-2",
+          icon("info-circle", class = "me-1"),
+          "Le fichier doit contenir les colonnes 'ess_ind' et 'modifier' (Excel ou CSV). Le modificateur doit se situer entre -80 et 160 %."
+      )
+
+      )
+
+    }
+  })
+
+  # Interface pour TBE
+  output$tbe_config_ui <- renderUI({
+
+    req(input$enable_tbe)
+    horizon <- input$annees_simulation / 10
+
+    isolate({
+      div(class = "small",
+
+        div(class = "fw-bold text-body mb-1",
+            "Décennie:"
+        ),
+        selectInput("decennie_tbe", label = NULL,
+          choices = setNames(
+            0:(horizon - 1),
+            paste("Décennie", 0:(horizon - 1), "-", 1:horizon)
+          ),
+          selected = NULL
+        ),
+
+        div(class = "fw-bold text-body mb-1",
+            "Défoliation TBE:"
+        ),
+        selectInput("effet_tbe",label = NULL,
+          choices = c(
+            "Absent" = 0,
+            "Présent" = 1
+          ),
+          selected = 0
+        ),
+
+        # Button effacer
+        div(class = "mt-2",
+            actionButton("clear_tbe",
+              "Effacer défoliations TBE",
+              class = "btn btn-danger",
+              width = "100%"
+            )
+        ),
+
+        # Affichage du vecteur actuel
+        div(class = "fw-bold text-body mb-1",
+            "Configuration actuelle TBE:"
+        ),
+        uiOutput("display_tbe")
+
+      )
+    })
+  })
+
+  # Observateurs pour appliquer les modifications aux vecteurs
+  observeEvent( list(input$type_coupe, input$modif_coupe, input$modif_excel_file), {
+    req(input$decennie_coupe, input$type_coupe)
+
+    if (input$type_coupe == "NA") {
+      showNotification("Impossible d'appliquer une configuration avec 'Aucune coupe' sélectionnée.",
+                       type = "warning", duration = 4)
+      return()
+    }
+
+    decennie_idx <- as.numeric(input$decennie_coupe) + 1
+
+    if (input$type_coupe == "NA") {
+      rv$coupe_on_vector[decennie_idx] <- NA_real_
+      rv$coupe_modif_vector[[decennie_idx]] <- NA
+    } else {
+      rv$coupe_on_vector[decennie_idx] <- as.numeric(input$type_coupe)
+
+      if (!is.null(input$type_modif) && input$type_modif == "simple") {
+        rv$coupe_modif_vector[[decennie_idx]] <- input$modif_coupe
+      } else if (!is.null(input$type_modif) && input$type_modif == "excel") {
+        if (!is.null(input$modif_excel_file) && !is.null(input$modif_excel_file$datapath)) {
+          tryCatch({
+            # Détecter le type de fichier par l'extension
+            file_ext <- tools::file_ext(input$modif_excel_file$name)
+
+            if (file_ext %in% c("xlsx", "xls")) {
+              modif_data <- readxl::read_excel(input$modif_excel_file$datapath)
+            } else if (file_ext == "csv") {
+              modif_data <- read.csv(input$modif_excel_file$datapath, sep = ";", header = TRUE)
+            } else {
+              showNotification("Format de fichier non supporté. Utilisez Excel (.xlsx, .xls) ou CSV.",
+                               type = "error", duration = 5)
+              return()
+            }
+
+            if (!all(c("ess_ind", "modifier") %in% colnames(modif_data))) {
+              showNotification("Le fichier doit contenir les colonnes 'ess_ind' et 'modifier'",
+                               type = "error", duration = 5)
+              return()
+            }
+
+            # Ajouter le nom du fichier au data.frame
+            attr(modif_data, "filename") <- input$modif_excel_file$name
+            rv$coupe_modif_vector[[decennie_idx]] <- modif_data
+
+          }, error = function(e) {
+            showNotification(paste("Erreur lors de la lecture du fichier:", e$message),
+                             type = "error", duration = 5)
+            return()
+          })
+        } else {
+          showNotification("Veuillez sélectionner un fichier",
+                           type = "error", duration = 5)
+          return()
+        }
+      } else {
+        rv$coupe_modif_vector[[decennie_idx]] <- 0
+      }
+    }
+
+    showNotification(paste("Coupe appliquée à la décennie", input$decennie_coupe),
+                     type = "message", duration = 2)
+  })
+
+  observeEvent({input$decennie_tbe
+    input$effet_tbe
+  }, {
+    req(input$decennie_tbe, input$effet_tbe)
+
+    decennie_idx <- as.numeric(input$decennie_tbe) + 1
+
+    # Vérifier que l'index est valide
+    if (decennie_idx > length(rv$tbe_vector)) {
+      showNotification("Erreur: Index de décennie invalide", type = "error", duration = 5)
+      return()
+    }
+
+    rv$tbe_vector[decennie_idx] <- as.numeric(input$effet_tbe)
+
+    showNotification(paste("TBE appliqué à la décennie", input$decennie_tbe),
+                     type = "message", duration = 2)
+  })
+
+  # Boutons pour effacer
+  observeEvent(input$clear_coupes, {
+    if (!is.null(rv$coupe_on_vector)) {
+      rv$coupe_on_vector <- rep(NA_real_, length(rv$coupe_on_vector))
+      rv$coupe_modif_vector <- vector("list", length(rv$coupe_modif_vector))
+      showNotification("Toutes les coupes ont été effacées", type = "message", duration = 2)
+    }
+  })
+
+  observeEvent(input$clear_tbe, {
+    if (!is.null(rv$tbe_vector)) {
+      rv$tbe_vector <- rep(0, length(rv$tbe_vector))
+      showNotification("Tous les effets TBE ont été effacés", type = "message", duration = 2)
+    }
+  })
+
+  # Affichage des vecteurs actuels
+  output$display_coupes <- renderText({
+    if (!is.null(rv$coupe_on_vector) && length(rv$coupe_on_vector) > 0) {
+      coupe_display <- ifelse(is.na(rv$coupe_on_vector), "NA", as.character(rv$coupe_on_vector))
+
+      modif_display <- sapply(seq_along(rv$coupe_modif_vector), function(i) {
+        x <- rv$coupe_modif_vector[[i]]
+        if (is.null(x) || (length(x) == 1 && is.na(x))) {
+          "NA"
+        } else if (is.numeric(x) && length(x) == 1) {
+          paste0(x, "%")
+        } else if (is.data.frame(x) && nrow(x) > 0) {
+          filename <- attr(x, "filename")
+          if (!is.null(filename)) {
+            filename
+          } else {
+            paste0("Excel (", nrow(x), " essences)")
+          }
+        } else {
+          "Vide"
+        }
+      })
+
+      paste0("Coupe_ON: [", paste(coupe_display, collapse = ", "), "]\n",
+             "Modif: [", paste(modif_display, collapse = ", "), "]")
+    } else {
+      "Aucune configuration"
+    }
+  })
+
+  output$display_tbe <- renderText({
+    if (!is.null(rv$tbe_vector)) {
+      paste0("TBE: [", paste(rv$tbe_vector, collapse = ", "), "]")
+    } else {
+      "Aucune configuration"
+    }
+  })
+
+
+
 
 }
 
