@@ -603,6 +603,18 @@ server <- function(input, output, session) {
                         )
                       )
                   )
+              ) ,
+
+              # Bouton de réinitialisation
+              div(
+                class = "d-flex justify-content-end mt-2",
+
+                actionButton(
+                  "reset_button",
+                  "Réinitialiser",
+                  class = "btn btn-danger",
+                  icon = icon("sync")
+                )
               )
 
             ))
@@ -2593,51 +2605,51 @@ server <- function(input, output, session) {
 
 # ------------ Bouton reset -------------------
   # Gestion de la réinitialisation
+  # Gestion de la réinitialisation
   observeEvent(input$reset_button, {
 
-    showModal(
-      modalDialog(
+    showModal(modalDialog(
         title = "Confirmation de réinitialisation",
 
-        div(
-          class = "text-center",
+        div(class = "text-center",
 
           # Message principal
-          p(
-            class = "fw-bold mb-2",
+          p(class = "fw-bold mb-2",
             "Êtes-vous sûr de vouloir réinitialiser l'application?"
           ),
 
           # Message secondaire
-          p(
-            class = "small text-muted mb-2",
+          p(class = "small text-muted mb-2",
             "Toutes les données et simulations actuelles seront perdues."
           ),
 
-          # Message d'avertissement
-          p(
-            class = "text-danger fw-semibold",
+          # Avertissement
+          p(class = "text-danger fw-semibold",
             "Cette action est irréversible."
           )
-        ),
+        ,
 
-        footer = tagList(
 
-          # Bouton danger
+        div(class = "d-flex justify-content-center gap-3",
+
           actionButton(
-            "confirm_reset",
-            "Oui, réinitialiser",
-            class = "btn btn-danger"
+            "cancel_reset",
+            "Annuler",
+            class = "btn btn-secondary",
+            style = "width: 170px;"
           ),
 
-          # Bouton annuler
-          modalButton(
-            "Annuler",
-            class = "btn btn-secondary"
+          actionButton(
+            "confirm_reset",
+            "Oui, Réinitialiser",
+            class = "btn btn-danger",
+            style = "width: 170px;"
           )
-        ),
+        )
+    ),
 
-        easyClose = TRUE
+        footer = NULL,
+        easyClose = FALSE
       )
     )
   })
@@ -2646,6 +2658,7 @@ server <- function(input, output, session) {
     rv$simulation_terminee <- FALSE
     session$reload()
   })
+
 
 
 
