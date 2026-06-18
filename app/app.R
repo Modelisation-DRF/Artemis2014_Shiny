@@ -38,24 +38,54 @@ ui <- fluidPage(
   # Importation du .css ministériel
   tags$head(
     tags$link(rel = "stylesheet", href = "theme-gouvernemental.css"),
+
     # Collapse la section
     tags$script(HTML("
     Shiny.addCustomMessageHandler('collapse_import_close', function(message) {
       var collapseElement = document.getElementById('collapse_import');
       var bsCollapse = new bootstrap.Collapse(collapseElement, {
         toggle: false }); bsCollapse.hide();});")),
+
     # Ouverture/fermture section tbe
     tags$script(HTML("
       Shiny.addCustomMessageHandler('toggle_tbe', function(msg){
       $('#enable_tbe').prop('disabled', msg.disable === true).prop('checked',false).trigger('change') ;
       if (msg.checked === true) { $('#tbe_details').prop('open', true);}
       });   ")),
+
     # Ouverture/fermeture section coupe
     tags$script(HTML("
       Shiny.addCustomMessageHandler('toggle_coupe', function(msg){
       $('#enable_coupe').prop('disabled', msg.disable === true).prop('checked',true) ;
       if (msg.checked === true) { $('#coupe_details').prop('open', true);}
       });   ")),
+
+    # Style boite de placette
+    tags$style(HTML("
+    .bootstrap-select .dropdown-menu li {
+    margin: 0 ;
+    padding: 0 ;}
+
+    .bootstrap-select .filter-option-inner-inner {
+    font-size: 0.85em;}
+    .bootstrap-select .dropdown-menu li a {
+     padding-bottom: 6px;padding-top: 6px;line-height: 0.8;min-height: unset }")),
+
+    tags$style(HTML("
+    .bootstrap-select .bs-actionsbox {
+    padding: 2px; }
+    .bootstrap-select .bs-actionsbox .btn-group {
+    display: flex !important;
+    flex-direction: row;width: 100%;gap: 1px; }
+    .bootstrap-select .bs-actionsbox .btn {
+    display: flex;justify-content: center;align-items: center; }")),
+
+    tags$style(HTML("
+    .bootstrap-select {
+    width: 100%; }"))
+
+
+
 
   ),
 
@@ -196,6 +226,10 @@ server <- function(input, output, session) {
     current_tab("donnees")
   })
 
+  observeEvent(input$tab_resultat, {
+    current_tab("resultat")
+  })
+
   # Chargement dynamique du menu de navigation
   output$nav_menu <- renderUI({
     current <- current_tab()
@@ -219,7 +253,17 @@ server <- function(input, output, session) {
             if (current == "donnees")
               "border-bottom:4px solid lightgray;" else ""
           )
-        )
+        ),
+        if (rv$simulation_terminee){
+        actionLink(
+          "tab_resultat", "Résultat",
+          class = "text-white px-2 fs-2",
+          style = paste0(
+            "text-decoration:none; padding-bottom:10px;",
+            if (current == "resultat")
+              "border-bottom:4px solid lightgray;" else ""
+          )
+        )}
     )
   })
 
@@ -308,7 +352,8 @@ server <- function(input, output, session) {
       )
 
     # Page Données
-    } else if (current_tab() == "donnees") {
+    }
+    else if (current_tab() == "donnees") {
 
       div(class = "container-fluid px-0 mt-2",
         div(class = "row g-2",
@@ -335,7 +380,7 @@ server <- function(input, output, session) {
                       class = "collapse show",
 
                       div(
-                        class = "p-2",   # 👈 léger padding au lieu de card-body
+                        class = "p-2",
 
                         fileInput(
                           "file",
@@ -417,6 +462,153 @@ server <- function(input, output, session) {
       )
 
     }
+    else if (current_tab() == "resultat") {
+
+      div(class = "container-fluid px-0 mt-2",
+          div(class = "row g-2",
+
+      # Colonne de gauche (1/3)
+      div(class = "col-md-4",
+
+          # Options de visualisation
+          div(class = "card mb-3",
+              div(
+                class = "card-header bg-secondary text-white d-flex justify-content-between align-items-center",
+                span("Options de visualisation"),
+
+                tags$a(
+                  href = "#collapse_opt_vis",
+                  `data-bs-toggle` = "collapse",
+                  role = "button",
+                  icon("chevron-down",class="text-white")
+                )
+              ),
+
+              div(
+                id = "collapse_opt_vis",
+                class = "collapse show",
+                div(class = "mt-1 ms-2",
+                  # Groupe d'espèces
+                  div(class = "fw-bold text-body mb-1",
+                      "Groupe d'espèces"
+                  ),
+                  div(class = "pe-2",
+                      selectInput(
+                        inputId = "espece",
+                        label = NULL,
+                        choices = c("")
+                      )
+                  ),
+
+                  # Variable
+                  div(class = "mt-2",
+
+                      div(class = "fw-bold text-body mb-1",
+                          "Choix de la variable"
+                      ),
+
+                      div(class = "pe-2",
+                          selectInput(
+                            "variable",
+                            label = NULL,
+                            choices = c(
+                              "Surface terrière marchande (m²/ha)" = "ST_HA",
+                              "Volume marchand (m³/ha)" = "Vol_HA",
+                              "Diamètre quadratique moyen" = "DMQ",
+                              "Densité (nb/ha)" = "nbTi_HA"
+                            ),
+                            selected = "ST_HA"
+                          )
+                      )
+                  ),
+
+                # Placette
+                  div(class = "mt-2",
+
+                      div(class = "fw-bold text-body mb-1",
+                          "Choix des placettes"
+                      ),
+                      div(class = "pe-2",
+                          pickerInput(
+                            inputId = "placette",
+                            label = NULL,
+                            choices = NULL,
+                            selected = NULL,
+                            multiple = TRUE,
+                            width = "100%",
+                            options = list(
+                              `actions-box` = TRUE,
+                              `deselect-all-text` = "Tout supprimer",
+                              `select-all-text` = "Tout sélectionner",
+                              `none-selected-text` = "Rien de sélectionné"
+                            )
+                          )
+                      )
+                  ),
+
+                  # Info simulation
+                  div(class = "",
+                      div(class = "fw-bold text-primary mb-1",
+                          "Information sur la simulation" ),
+                      uiOutput("simulation_info")
+                  )
+
+
+                ))
+
+              ),
+
+
+              # Exportation des résultats
+              div(class = "card",
+                  div(
+                    class = "card-header bg-secondary text-white d-flex justify-content-between align-items-center",
+                    span("Exportation des résultats"),
+                    tags$a(
+                      href = "#collapse_exp_res",
+                      `data-bs-toggle` = "collapse",
+                      role = "button",
+                      icon("chevron-down",class="text-white")
+                    )
+                  ),
+
+                  div(
+                    id = "collapse_exp_res",
+                    class = "collapse show"
+                    #ici
+                  )
+              )),
+
+              # colonne de droite (2/3)
+              div(class = "col-md-8",
+                  # Visualisation des résultats
+                  div(class = "card",
+                      div(
+                        class = "card-header bg-secondary text-white d-flex justify-content-between align-items-center",
+                        span("Visualisation des résultats"),
+                        tags$a(
+                          href = "#collapse_resultat",
+                          `data-bs-toggle` = "collapse",
+                          role = "button",
+                          icon("chevron-down",class="text-white")
+                        )
+                      ),
+
+                      div(
+                        id = "collapse_resultat",
+                        class = "collapse show",
+
+                        div(class = "card-body py-0 fs-5",
+                            plotOutput("resultat_graphique", height = "600px")
+                        )
+                      )
+                  )
+              )
+
+            ))
+
+    }
+
   })
 
 
@@ -1210,7 +1402,7 @@ server <- function(input, output, session) {
       footer = actionButton(
         "close_extraction",
         "Suivant",
-        class = "btn btn-primary"
+        class = "btn btn-primary w-100"
       ),
 
       easyClose = FALSE,
@@ -1276,8 +1468,8 @@ server <- function(input, output, session) {
             radioButtons(
               "recrutement_ajuste",
               NULL,
-              choices = list("Non" = "non", "Oui" = "oui"),
-              selected = "non",
+              choices = list("Non" = "Non", "Oui" = "Oui"),
+              selected = "Non",
               inline = TRUE
             )
           )
@@ -1294,8 +1486,8 @@ server <- function(input, output, session) {
             radioButtons(
               "coupe_partielle",
               NULL,
-              choices = list("Non" = "non", "Oui" = "oui"),
-              selected = "non",
+              choices = list("Non" = "Non", "Oui" = "Oui"),
+              selected = "Non",
               inline = TRUE
             )
           )
@@ -1312,8 +1504,8 @@ server <- function(input, output, session) {
             radioButtons(
               "mch",
               NULL,
-              choices = list("Non" = "non", "Oui" = "oui"),
-              selected = "non",
+              choices = list("Non" = "Non", "Oui" = "Oui"),
+              selected = "Non",
               inline = TRUE
             )
           )
@@ -2235,8 +2427,224 @@ server <- function(input, output, session) {
           backdrop = "static"
         )
       )
+      print("test")
 
     }
+  })
+
+
+#-----------------------Section Résultat------------------------------
+
+  # Changement de page vers les résultats
+  observeEvent(input$close_simulation, {
+    removeModal()
+    if (!is.null(rv$resultats_simulation)) {
+      saveRDS(rv$resultats_simulation, "cached_simulation_results.rds")
+      cat("✓ Simulation results saved for development\n")
+    }
+
+    rv$simulation_terminee <- TRUE
+    current_tab("resultat")
+
+  })
+
+  # Charger les options de visualisation
+  observeEvent(current_tab(), {
+
+    if (current_tab() == "resultat") {
+
+      req(rv$resultats_simulation)
+      # Extraire les especes uniques
+      listeEspece <- unique(rv$resultats_simulation$GrEspece)
+
+      # Mettre à jour la liste déroulante
+      updateSelectInput(
+        session,
+        "espece",
+        choices = c("TOT", listeEspece),
+        selected = "TOT"
+      )
+
+      # Extraire toutes les placettes uniques des résultats
+      placettes <- unique(rv$resultats_simulation$PlacetteID)
+
+      # Mettre à jour le sélecteur de placettes
+      updatePickerInput(
+        session,
+        "placette",
+        choices = placettes,
+        selected = placettes
+      )
+    }
+
+  })
+
+
+  # Information sur la simulation
+  output$simulation_info <- renderUI({
+
+    req(rv$resultats_simulation)
+
+    # Détection climat
+    no_climate_data <- !is.null(rv$extraction_option) && rv$extraction_option == "none"
+    # Définir les valeurs réelles utilisées pour les modules en cas d'absence de données climatiques
+    module_acc_utilise <- if (no_climate_data) "Original" else switch(input$module_accroissement,
+                                                                      "original" = "Original",
+                                                                      "brt" = "Wang 2023",
+                                                                      "gam" = "D'Orangeville 2018",
+                                                                      "fortin"= "Fortin 2026")
+
+    module_mort_utilise <- if (no_climate_data) "Original" else switch(input$module_mortalite,
+                                                                       "original" = "Original",
+                                                                       "que" = "Power 2025",
+                                                                       "caneu" = "Power 2026")
+
+    div(class = "border rounded p-1 bg-light text-start mt-2 me-2 mb-2 ",
+
+        tags$ul(class = "mb-0 ps-3",
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Recrutement ajustés : ", input$recrutement_ajuste)),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Coupe partielle : ", input$coupe_partielle)),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("MCH : ", input$mch)),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Module d'accroissement : ", module_acc_utilise)),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Module de mortalité : ", module_mort_utilise)),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Années de simulation: ", input$annees_simulation)),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Défoliation TBE : ", ifelse(input$enable_tbe, "Oui", "Non"))),
+                tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Traitement de coupe : ", ifelse(input$enable_coupe, "Oui", "Non"))),
+
+                if (input$enable_coupe) {
+                  div(class = "text-body", style = "margin-bottom: 1px; padding: 0;",
+                      uiOutput("display_coupes")
+                  )
+                },
+
+                if (no_climate_data) {
+                  tags$li(style = "margin-bottom: 1px; padding: 0;","Évolution du climat : Non (données climatiques non utilisées)")
+                } else {
+                  tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Évolution du climat : ", ifelse(input$evolution_climat == "yes", "Oui", "Non")))
+                },
+
+                if (!no_climate_data) {
+                  tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Scénario RCP : ", input$rcp))
+                }
+        )
+    )
+  })
+
+  # Affichage du résultat en graphique
+  output$resultat_graphique <- renderPlot({
+    req(rv$resultats_simulation)
+    req(input$espece)
+    req(input$variable)
+
+    # S'assurer qu'il y a au moins une placette sélectionnée
+    if (is.null(input$placette) || length(input$placette) == 0) {
+      # Si aucune placette n'est sélectionnée, utiliser toutes les placettes
+      placettes_to_use <- unique(rv$resultats_simulation$PlacetteID)
+    } else {
+      placettes_to_use <- input$placette
+    }
+
+    # Appel de la fonction Graph du package Artemis
+    Graph(
+      Data = rv$resultats_simulation,
+      Espece = input$espece,
+      Variable = input$variable,
+      listePlacette = placettes_to_use
+    )
+  })
+
+  observeEvent(input$add_grade2, {
+    rv$show_grade2 <- TRUE
+  })
+
+  observeEvent(input$add_grade3, {
+    rv$show_grade3 <- TRUE
+  })
+
+  observeEvent(input$remove_grade2, {
+    rv$show_grade2 <- FALSE
+    rv$show_grade3 <- FALSE  # Si on supprime Grade 2, supprimer aussi Grade 3
+
+    # Réinitialiser les valeurs du Grade 2 et 3
+    updateTextInput(session, "nom_grade2", value = "")
+    updateSelectInput(session, "long_grade2", selected = "-- Aucune --")
+    updateNumericInput(session, "diam_grade2", value = NA)
+
+    updateTextInput(session, "nom_grade3", value = "")
+    updateSelectInput(session, "long_grade3", selected = "-- Aucune --")
+    updateNumericInput(session, "diam_grade3", value = NA)
+  })
+
+  observeEvent(input$remove_grade3, {
+    rv$show_grade3 <- FALSE
+
+    # Réinitialiser les valeurs du Grade 3
+    updateTextInput(session, "nom_grade3", value = "")
+    updateSelectInput(session, "long_grade3", selected = "-- Aucune --")
+    updateNumericInput(session, "diam_grade3", value = NA)
+  })
+
+  # Observer pour afficher le Grade 3 (seulement si Grade 2 existe)
+  observeEvent(input$add_grade3, {
+    if (rv$show_grade2) {  # Vérification de sécurité
+      rv$show_grade3 <- TRUE
+    }
+  })
+
+# ------------ Bouton reset -------------------
+  # Gestion de la réinitialisation
+  observeEvent(input$reset_button, {
+
+    showModal(
+      modalDialog(
+        title = "Confirmation de réinitialisation",
+
+        div(
+          class = "text-center",
+
+          # Message principal
+          p(
+            class = "fw-bold mb-2",
+            "Êtes-vous sûr de vouloir réinitialiser l'application?"
+          ),
+
+          # Message secondaire
+          p(
+            class = "small text-muted mb-2",
+            "Toutes les données et simulations actuelles seront perdues."
+          ),
+
+          # Message d'avertissement
+          p(
+            class = "text-danger fw-semibold",
+            "Cette action est irréversible."
+          )
+        ),
+
+        footer = tagList(
+
+          # Bouton danger
+          actionButton(
+            "confirm_reset",
+            "Oui, réinitialiser",
+            class = "btn btn-danger"
+          ),
+
+          # Bouton annuler
+          modalButton(
+            "Annuler",
+            class = "btn btn-secondary"
+          )
+        ),
+
+        easyClose = TRUE
+      )
+    )
+  })
+
+  observeEvent(input$confirm_reset, {
+    rv$simulation_terminee <- FALSE
+    session$reload()
   })
 
 
