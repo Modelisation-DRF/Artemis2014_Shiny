@@ -84,9 +84,6 @@ ui <- fluidPage(
     .bootstrap-select {
     width: 100%; }"))
 
-
-
-
   ),
 
   # Solution temporaire pour faire fonctionner les renderUI des inputs (important de laisser ça là)
@@ -94,6 +91,7 @@ ui <- fluidPage(
       selectInput("dummy_hidden", NULL, choices = "")
   ),
 
+# ------------------------ Visuel ----------------------
   # Header gouvernemental
   tags$header(
     div(
@@ -177,7 +175,7 @@ ui <- fluidPage(
 
 
 
-# Serveur
+# ------------------------ Serveur ----------------------------------
 server <- function(input, output, session) {
 
   session$onSessionEnded(function() {
@@ -574,8 +572,134 @@ server <- function(input, output, session) {
 
                   div(
                     id = "collapse_exp_res",
-                    class = "collapse show"
-                    #ici
+                    class = "collapse show",
+                    div(class = "mt-2 ms-2",
+
+                        div(class = "fw-bold text-body mb-1",
+                            "Toutes les années de simulation"
+                        ),
+
+                        div(class = "pe-2 small",
+                            radioButtons(
+                              "simplifier",
+                              label = NULL,
+                              choices = list("Oui" = FALSE, "Non" = TRUE),
+                              selected = FALSE,
+                              inline = TRUE
+                            )
+                        ),
+
+                        div(class = "fw-bold text-body mb-1",
+                            "Choix de la sortie"
+                        ),
+
+                        div(class = "pe-2",
+                            selectInput(
+                              "Sortie",
+                              label = NULL,
+                              choices = c(
+                                "-- Sélectionner une option --" = "",
+                                "Arbre" = "arbre",
+                                "Placette" = "placette",
+                                "À l'échelle du billon" = "echelle_billon"
+                              ),
+                              selected = ""
+                            )
+                        ),
+                        # Conditional panel si "À l'échelle du billon"
+                        conditionalPanel(
+                          condition = "input.Sortie == 'echelle_billon'",
+
+                          # Feuillus durs
+                          div(class = "mt-2",
+                              div(class = "fw-bold text-body mb-1",
+                                  "Billonnage Feuillus durs (Pétro)"
+                              ),
+
+                              div(class = "pe-2",
+                                  selectInput(
+                                    "typeBillonnage",
+                                    label = NULL,
+                                    choices = list(
+                                      "DHP_Régionalisé" = "DHP",
+                                      "DHP_Provincial" = "DHP2015"
+                                    ))
+                              )
+                          ),
+                          # Résineux
+                          div(class = "mt-2",
+                              div(class = "fw-bold text-body mb-1",
+                                  "Billonnage Résineux"
+                              ),
+                              div(class = "pe-2",
+                                  numericInput(
+                                    "dhs_input",
+                                    label = "DHS (Diamètre à hauteur de souche) :",
+                                    value = 0.15,
+                                    min = 0.01,
+                                    max = 1.0,
+                                    step = 0.01
+                                  )
+                              ))
+                        ),
+                        div(class = "border rounded p-1 bg-light text-start mt-2 me-2 mb-2 ",
+
+                          div(class = "fw-bold text-body mb-0",
+                            "Grade 1"
+                          ),
+
+                          textInput(
+                            "nom_grade1",
+                            "Nom du grade 1:",
+                            value = "sciage court"
+                          ),
+
+                          selectInput(
+                            "long_grade1",
+                            "Longueur (pieds):",
+                            choices = c("Indéfini", "4", "8", "12"),
+                            selected = "8"
+                          ),
+
+                          numericInput(
+                            "diam_grade1",
+                            "Diamètre au fin bout (cm):",
+                            value = 20,
+                            min = 0,
+                            max = 100,
+                            step = 0.1
+                          )
+                        ),
+                        # Section sur les Grades
+                        uiOutput("add_grade2_button"),
+                        uiOutput("grade2_section"),
+                        uiOutput("add_grade3_button"),
+                        uiOutput("grade3_section"),
+
+                        div(class = "mt-3 me-2 mb-2 text-center",
+
+                            actionButton(
+                              "calculer_billonnage",
+                              "Simuler le billonnage",
+                              class = "btn btn-primary w-100",
+                              icon = icon("calculator")
+                            )
+                        ),
+
+                        div(class = "mt-3 me-2 mb-2",
+
+                            downloadButton(
+                              "download_resultats_custom",
+                              "Télécharger les résultats",
+                              class = "btn btn-primary w-100"
+                            )
+                        ),
+
+                        div(
+                          class = "mt-2 mb-2 me-2 small text-muted fst-italic",
+                          "Si \"Non\" est sélectionné, seuls les résultats de la première et de la dernière année de la simulation seront exportés."
+                        )
+                    )
                   )
               )),
 
@@ -1254,6 +1378,8 @@ server <- function(input, output, session) {
     })
   })
 
+
+# ------------------- Section configuration de la simulation ------------------
   # Rendre le bouton d'extraction final (option simuler les données climatiques)
   output$extraction_button_final <- renderUI({
     req(input$annee_depart, input$horizon, input$rcp)
@@ -1457,7 +1583,8 @@ server <- function(input, output, session) {
     rv$extraction_completed <- TRUE
   })
 
-  # Observateur pour le choix de simulation - avec désactivation des options supplémentaires
+
+  # Chargement ui de la section Configuration de la simulation
   simulation_ui <- function()
   {
     # Rediriger vers le panel de simulation avec les nouvelles options
@@ -1788,7 +1915,6 @@ server <- function(input, output, session) {
         "toggle_coupe", list(disable = FALSE, checked = TRUE) )    }
   })
 
-
   #Observateur pour la coupe
   observeEvent(input$enable_coupe, {
     if (input$enable_coupe && !is.null(input$annees_simulation)) {
@@ -1898,6 +2024,7 @@ server <- function(input, output, session) {
     })
   })
 
+  # Section pour modificateur dans traitement de coupe
   output$modificateur_ui <- renderUI({
 
     req(input$type_modif)
@@ -2049,6 +2176,7 @@ server <- function(input, output, session) {
                      type = "message", duration = 2)
   })
 
+  # Observateur pour TBE
   observeEvent({input$decennie_tbe
     input$effet_tbe
   }, {
@@ -2565,46 +2693,418 @@ server <- function(input, output, session) {
     )
   })
 
+# --------------Exportation des résultats----------------
+  observeEvent(c(input$Sortie, input$simplifier), {
+    req(input$Sortie, rv$resultats_simulation)
+
+    switch(input$Sortie,
+           "arbre" = {
+             rv$processed_Simul <- SortieArbre(SimulHtVol = rv$resultats_simulation,
+                                               simplifier = input$simplifier)
+           },
+           "placette" = {
+             rv$processed_Simul <- SortiePlacette(SimulHtVol = rv$resultats_simulation,
+                                                  simplifier = input$simplifier)
+           },
+           "echelle_billon" = {
+             # Attendre que processed_Billonage soit disponible
+             if (!is.null(rv$processed_Billonage)) {
+               rv$processed_Simul <- rv$processed_Billonage
+             } else {
+               # Si pas encore traité, déclencher une invalidation pour réessayer
+               invalidateLater(100, session)
+               return()
+             }
+           }
+    )
+  }, ignoreInit = TRUE)
+
+  # Section du Grade 2
   observeEvent(input$add_grade2, {
     rv$show_grade2 <- TRUE
   })
+  output$add_grade2_button <- renderUI({
 
-  observeEvent(input$add_grade3, {
-    rv$show_grade3 <- TRUE
+    if (!rv$show_grade2) {
+
+      div(class = "text-center mt-2 mb-2",
+          #div(class = "border border-primary rounded p-1 bg-light text-center mt-2 me-2 mb-2 ",
+
+          actionButton(
+            "add_grade2",
+            "Ajouter Grade 2",
+            class = "btn btn-primary rounded-pill px-4",
+            icon = icon("plus-circle"))
+      )
+      #)
+    }
   })
-
   observeEvent(input$remove_grade2, {
     rv$show_grade2 <- FALSE
     rv$show_grade3 <- FALSE  # Si on supprime Grade 2, supprimer aussi Grade 3
 
     # Réinitialiser les valeurs du Grade 2 et 3
     updateTextInput(session, "nom_grade2", value = "")
-    updateSelectInput(session, "long_grade2", selected = "-- Aucune --")
+    updateSelectInput(session, "long_grade2", selected = "Indéfini")
     updateNumericInput(session, "diam_grade2", value = NA)
 
     updateTextInput(session, "nom_grade3", value = "")
-    updateSelectInput(session, "long_grade3", selected = "-- Aucune --")
+    updateSelectInput(session, "long_grade3", selected = "Indéfini")
     updateNumericInput(session, "diam_grade3", value = NA)
   })
+  output$grade2_section <- renderUI({
 
+    if (rv$show_grade2) {
+        div(class = "grade-card border rounded p-1 bg-light text-start mt-2 me-2 mb-2 position-relative",
+
+          div(class = "position-absolute top-0 end-0 m-2",
+
+            actionButton(
+              "remove_grade2",
+              NULL,
+              class = "btn btn-danger btn-sm rounded-circle",
+              icon = icon("trash"),
+              title = "Supprimer le Grade 2 (et Grade 3 si présent)"
+            )
+          ),
+
+          div(class = "fw-bold text-body mb-0",
+              "Grade 2"
+          ),
+
+          div(class = "small text-muted mb-2",
+              "(Optionnel)"
+          ),
+
+          textInput(
+            "nom_grade2",
+            "Nom du grade 2:",
+            value = "pate"
+          ),
+
+          selectInput(
+            "long_grade2",
+            "Longueur (pieds):",
+            choices = c("Indéfini", "4", "8", "12"),
+            selected = "4"
+          ),
+
+          numericInput(
+            "diam_grade2",
+            "Diamètre au fin bout (cm):",
+            value = 8,
+            min = 0,
+            max = 100,
+            step = 0.1
+          )
+        )
+    }
+  })
+
+
+  # Section du grade 3
+  observeEvent(input$add_grade3, {
+    if (rv$show_grade2) {  # Affiche seulement si grade 2 existe
+      rv$show_grade3 <- TRUE
+    }
+  })
+  output$add_grade3_button <- renderUI({
+
+    if (rv$show_grade2 && !rv$show_grade3) {
+
+      div(class = "text-center mt-2 mb-3",
+          actionButton(
+            "add_grade3",
+            "Ajouter Grade 3",
+            class = "btn btn-primary rounded-pill px-4",
+            icon = icon("plus-circle")
+          )
+      )
+    }
+
+  })
   observeEvent(input$remove_grade3, {
     rv$show_grade3 <- FALSE
 
     # Réinitialiser les valeurs du Grade 3
     updateTextInput(session, "nom_grade3", value = "")
-    updateSelectInput(session, "long_grade3", selected = "-- Aucune --")
+    updateSelectInput(session, "long_grade3", selected = "Indéfini")
     updateNumericInput(session, "diam_grade3", value = NA)
   })
+  output$grade3_section <- renderUI({
 
-  # Observer pour afficher le Grade 3 (seulement si Grade 2 existe)
-  observeEvent(input$add_grade3, {
-    if (rv$show_grade2) {  # Vérification de sécurité
-      rv$show_grade3 <- TRUE
+    if (rv$show_grade3) {
+
+      div(class = "grade-card border rounded p-1 bg-light text-start mt-2 me-2 mb-2 position-relative",
+
+          div(class = "position-absolute top-0 end-0 m-2",
+
+              actionButton(
+                "remove_grade3",
+                NULL,
+                class = "btn btn-danger btn-sm rounded-circle",
+                icon = icon("trash"),
+                title = "Supprimer le Grade 3"
+              )
+          ),
+
+          div(class = "fw-bold text-body mb-0",
+              "Grade 3"
+          ),
+
+          div(class = "small text-muted mb-2",
+              "(Optionnel)"
+          ),
+
+          textInput(
+            "nom_grade3",
+            "Nom du grade 3:",
+            value = ""
+          ),
+
+          selectInput(
+            "long_grade3",
+            "Longueur (pieds):",
+            choices = c( "Indéfini", "4", "8", "12"),
+            selected = "Indéfini"
+          ),
+
+          numericInput(
+            "diam_grade3",
+            "Diamètre au fin bout (cm):",
+            value = NA,
+            min = 0,
+            max = 100,
+            step = 0.1
+          )
+      )
     }
   })
 
+  # Billonage
+  observeEvent(input$calculer_billonnage, {
+
+    req(input$dhs_input, input$typeBillonnage, rv$resultats_simulation)
+
+    # Validation
+    if (input$nom_grade1 == "" || is.na(input$diam_grade1)) {
+
+      showNotification(
+        "Grade 1 : Le nom et le diamètre sont obligatoires",
+        type = "error",
+        duration = 5
+      )
+      return()
+    }
+
+    if (isTRUE(rv$show_grade2) &&
+        (input$nom_grade2 == "" || is.na(input$diam_grade2))) {
+
+      showNotification(
+        "Grade 2 : Le nom et le diamètre sont obligatoires",
+        type = "error",
+        duration = 5
+      )
+      return()
+    }
+
+    if (isTRUE(rv$show_grade3) &&
+        (input$nom_grade3 == "" || is.na(input$diam_grade3))) {
+
+      showNotification(
+        "Grade 3 : Le nom et le diamètre sont obligatoires",
+        type = "error",
+        duration = 5
+      )
+      return()
+    }
+
+
+    withProgress(message = "Calcul du billonnage en cours...", value = 0, {
+
+      incProgress(0.1, detail = "Validation des paramètres...")
+
+      dhs_val <- as.numeric(input$dhs_input)
+      simplifier_val <- input$simplifier
+
+      suppressWarnings({
+
+        incProgress(0.2, detail = "Traitement des longueurs...")
+
+        long_grade1_val <- if (is.null(input$long_grade1) || input$long_grade1 == "Indéfini") {
+          NA_real_
+        } else {
+          as.numeric(input$long_grade1)
+        }
+
+        long_grade2_val <- NA_real_
+        if (isTRUE(rv$show_grade2) && !is.null(input$long_grade2)) {
+
+          long_grade2_val <- if (input$long_grade2 =="Indéfini") {
+            NA_real_
+          } else {
+            as.numeric(input$long_grade2)
+          }
+        }
+
+        long_grade3_val <- NA_real_
+        if (isTRUE(rv$show_grade3) && !is.null(input$long_grade3)) {
+
+          long_grade3_val <- if (input$long_grade3 == "Indéfini") {
+            NA_real_
+          } else {
+            as.numeric(input$long_grade3)
+          }
+        }
+
+        incProgress(0.3, detail = "Traitement des diamètres...")
+
+        diam_grade1_val <- if (is.null(input$diam_grade1) || is.na(input$diam_grade1)) {
+          NA_real_
+        } else {
+          as.numeric(input$diam_grade1)
+        }
+
+        diam_grade2_val <- if (isTRUE(rv$show_grade2) &&
+                               !is.null(input$diam_grade2) &&
+                               !is.na(input$diam_grade2)) {
+          as.numeric(input$diam_grade2)
+        } else {
+          NA_real_
+        }
+
+        diam_grade3_val <- if (isTRUE(rv$show_grade3) &&
+                               !is.null(input$diam_grade3) &&
+                               !is.na(input$diam_grade3)) {
+          as.numeric(input$diam_grade3)
+        } else {
+          NA_real_
+        }
+
+        incProgress(0.4, detail = "Préparation des noms de grades...")
+
+        nom_grade1_val <- as.character(input$nom_grade1)
+
+        nom_grade2_val <- if (isTRUE(rv$show_grade2) &&
+                              !is.null(input$nom_grade2) &&
+                              input$nom_grade2 != "") {
+          as.character(input$nom_grade2)
+        } else {
+          NA_character_
+        }
+
+        nom_grade3_val <- if (isTRUE(rv$show_grade3) &&
+                              !is.null(input$nom_grade3) &&
+                              input$nom_grade3 != "") {
+          as.character(input$nom_grade3)
+        } else {
+          NA_character_
+        }
+      })
+
+      incProgress(0.5, detail = "Exécution du calcul...")
+
+      tryCatch({
+
+        rv$processed_Billonage <- SortieBillesFusion(
+          Data = rv$resultats_simulation,
+          Type = as.character(input$typeBillonnage),
+          dhs = dhs_val,
+          nom_grade1 = nom_grade1_val,
+          long_grade1 = long_grade1_val,
+          diam_grade1 = diam_grade1_val,
+          nom_grade2 = nom_grade2_val,
+          long_grade2 = long_grade2_val,
+          diam_grade2 = diam_grade2_val,
+          nom_grade3 = nom_grade3_val,
+          long_grade3 = long_grade3_val,
+          diam_grade3 = diam_grade3_val,
+          Simplifier = simplifier_val
+        )
+
+        rv$processed_Simul <- rv$processed_Billonage
+
+        incProgress(1, detail = "Terminé")
+
+        showNotification(
+          "Billonnage calculé avec succès!",
+          type = "message",
+          duration = 3
+        )
+
+      }, error = function(e) {
+
+        showNotification(
+          paste("Erreur:", e$message),
+          type = "error",
+          duration = 5
+        )
+
+        rv$processed_Billonage <- NULL
+        rv$processed_Simul <- NULL
+      })
+    })
+
+    # Billoange calculé
+    updateActionButton(
+      session,
+      "calculer_billonnage",
+      label = "Billonnage calculé",
+      icon = icon("check")
+    )
+
+  })
+
+  # Réinitialisé texte sur le bouton
+  observeEvent({
+    input$nom_grade1
+    input$diam_grade1
+    input$long_grade1
+    input$nom_grade2
+    input$diam_grade2
+    input$long_grade2
+    input$nom_grade3
+    input$diam_grade3
+    input$long_grade3
+    input$typeBillonnage
+    input$dhs_input
+    input$simplifier
+    input$Sortie}, {
+
+    updateActionButton(
+      session,
+      "calculer_billonnage",
+      label = "Simuler le billonnage",
+      icon = icon("calculator")
+    )
+
+  }, ignoreInit = TRUE)
+
+
+  # Download résultat
+  output$download_resultats_custom <- downloadHandler(
+    filename = function() {
+      if(!(input$Sortie == "echelle_billon")){
+
+        paste("resultats_simulation_artemis_sortie_",input$Sortie,"_",Sys.Date(), ".csv", sep = "")
+
+      }
+      else{
+        paste("resultats_simulation_artemis_sortie_",input$Sortie,"_",input$typeBillonnage,"_",Sys.Date(), ".csv", sep = "")
+      }
+    },
+    content = function(file) {
+      # Utiliser le dataframe résultant de la simulation
+      if (!is.null(rv$processed_Simul)) {
+        write.table(rv$processed_Simul, file, sep = ";", row.names = FALSE)
+      } else {
+        # Créer un fichier vide ou avec un message d'erreur si aucun résultat n'est disponible
+        write.csv(data.frame(Erreur = "Aucun résultat de simulation disponible"), file, row.names = FALSE)
+      }
+    }
+  )
+
 # ------------ Bouton reset -------------------
-  # Gestion de la réinitialisation
   # Gestion de la réinitialisation
   observeEvent(input$reset_button, {
 
@@ -2654,6 +3154,7 @@ server <- function(input, output, session) {
     )
   })
 
+  # Réinitialisation
   observeEvent(input$confirm_reset, {
     rv$simulation_terminee <- FALSE
     session$reload()
@@ -2664,6 +3165,6 @@ server <- function(input, output, session) {
 
 }
 
-
+# ------------------------ App -----------------------
 # Lancer l'application
 shinyApp(ui = ui, server = server)
