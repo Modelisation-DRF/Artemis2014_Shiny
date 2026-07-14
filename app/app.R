@@ -1499,7 +1499,7 @@ server <- function(input, output, session) {
         ),
 
         div(class = "fw-bold fs-3 mb-2",
-          "Les données climatiques ont été extraites avec succès !"
+          "Les données climatiques ont été simulées avec succès !"
         ),
 
         p("Vous pouvez télécharger les fichiers ci-dessous :"),
@@ -1724,8 +1724,8 @@ server <- function(input, output, session) {
               # Message utilisateur pour module d'accroissement et de mortalité
               div(class = "small fst-italic text-muted mt-1 pe-2",
                 icon("info-circle", class = "me-1"),
-                "Les modules d'accroissement et de mortalité avancés sont désactivés ",
-                "car aucune donnée climatique n'est utilisée."
+                "Les modules d'accroissement et de mortalité sensibles au climat  ",
+                "sont désactivés car aucune donnée climatique n'est fournie."
               )
             )
           }
@@ -1801,7 +1801,7 @@ server <- function(input, output, session) {
               # Message utilisateur
               div(class = "small fst-italic text-muted mt-1 pe-2",
                 icon("info-circle", class = "me-1"),
-                "Option désactivée car aucune donnée climatique n'est utilisée."
+                "Option désactivée car aucune donnée climatique n'est fournie."
               )
             )
           }
@@ -2095,7 +2095,7 @@ server <- function(input, output, session) {
         # Button effacer
         div(class = "mt-2",
             actionButton("clear_tbe",
-              "Effacer défoliations TBE",
+              "Effacer les défoliations TBE",
               class = "btn btn-danger",
               width = "100%"
             )
@@ -2545,7 +2545,7 @@ server <- function(input, output, session) {
                 },
 
                 if (no_climate_data) {
-                  tags$li(style = "margin-bottom: 1px; padding: 0;","Évolution du climat : Non (données climatiques non utilisées)")
+                  tags$li(style = "margin-bottom: 1px; padding: 0;","Évolution du climat : Non")
                 } else {
                   tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Évolution du climat : ", ifelse(input$evolution_climat == "yes", "Oui", "Non")))
                 },
@@ -3027,7 +3027,7 @@ server <- function(input, output, session) {
         incProgress(1, detail = "Terminé")
 
         showNotification(
-          "Billonnage calculé avec succès!",
+          "Billonnage simulé avec succès!",
           type = "message",
           duration = 3
         )
@@ -3049,7 +3049,7 @@ server <- function(input, output, session) {
     updateActionButton(
       session,
       "calculer_billonnage",
-      label = "Billonnage calculé",
+      label = "Billonnage simulé",
       icon = icon("check")
     )
 
