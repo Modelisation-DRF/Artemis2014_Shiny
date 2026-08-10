@@ -640,41 +640,41 @@ server <- function(input, output, session) {
                                     max = 1.0,
                                     step = 0.01
                                   )
-                              ))
-                        ),
-                        div(class = "border rounded p-1 bg-light text-start mt-2 me-2 mb-2 ",
+                              )),
+                          div(class = "border rounded p-1 bg-light text-start mt-2 me-2 mb-2 ",
 
-                          div(class = "fw-bold text-body mb-0",
-                            "Grade 1"
-                          ),
+                              div(class = "fw-bold text-body mb-0",
+                                  "Grade 1"
+                              ),
 
-                          textInput(
-                            "nom_grade1",
-                            "Nom du grade 1:",
-                            value = "sciage court"
-                          ),
+                              textInput(
+                                "nom_grade1",
+                                "Nom du grade 1:",
+                                value = "sciage court"
+                              ),
 
-                          selectInput(
-                            "long_grade1",
-                            "Longueur (pieds):",
-                            choices = c("Indéfini", "4", "8", "12"),
-                            selected = "8"
-                          ),
+                              selectInput(
+                                "long_grade1",
+                                "Longueur (pieds):",
+                                choices = c("Indéfini", "4", "8", "12"),
+                                selected = "8"
+                              ),
 
-                          numericInput(
-                            "diam_grade1",
-                            "Diamètre au fin bout (cm):",
-                            value = 20,
-                            min = 0,
-                            max = 100,
-                            step = 0.1
+                              numericInput(
+                                "diam_grade1",
+                                "Diamètre au fin bout (cm):",
+                                value = 20,
+                                min = 0,
+                                max = 100,
+                                step = 0.1
+                              )
                           )
-                        ),
+                        ,
                         # Section sur les Grades
                         uiOutput("add_grade2_button"),
                         uiOutput("grade2_section"),
                         uiOutput("add_grade3_button"),
-                        uiOutput("grade3_section"),
+                        uiOutput("grade3_section")),
 
                         div(class = "mt-3 me-2 mb-2 text-center",
 
@@ -1923,11 +1923,13 @@ server <- function(input, output, session) {
       if (is.null(rv$coupe_on_vector)) {
         rv$coupe_on_vector <- rep(NA_real_, horizon)
         rv$coupe_modif_vector <- vector("list", horizon)
+        rv$coupe_init <- FALSE
       }
     } else {
       # Réinitialiser les vecteurs quand la case est décochée
       rv$coupe_on_vector <- NULL
       rv$coupe_modif_vector <- NULL
+      rv$coupe_init <- FALSE
     }
   })
 
@@ -2111,15 +2113,26 @@ server <- function(input, output, session) {
     })
   })
 
-  # Observateurs pour appliquer les modifications aux vecteurs
-  observeEvent( list(input$type_coupe, input$modif_coupe, input$modif_excel_file), {
-    req(input$decennie_coupe, input$type_coupe)
+  observeEvent(input$type_coupe, {
 
-    if (input$type_coupe == "NA") {
+    if (!rv$coupe_init) {
+      rv$coupe_init <- TRUE
+      return()
+    }
+
+    if (input$type_coupe == "NA" && rv$coupe_init == TRUE) {
       showNotification("Impossible d'appliquer une configuration avec 'Aucune coupe' sélectionnée.",
                        type = "warning", duration = 4)
       return()
     }
+
+    showNotification(paste("Coupe appliquée à la décennie", input$decennie_coupe),
+                     type = "message", duration = 2)
+  })
+
+  # Observateurs pour appliquer les modifications aux vecteurs
+  observeEvent( list(input$type_coupe, input$modif_coupe, input$modif_excel_file), {
+    req(input$decennie_coupe, input$type_coupe)
 
     decennie_idx <- as.numeric(input$decennie_coupe) + 1
 
@@ -2171,10 +2184,8 @@ server <- function(input, output, session) {
         rv$coupe_modif_vector[[decennie_idx]] <- 0
       }
     }
-
-    showNotification(paste("Coupe appliquée à la décennie", input$decennie_coupe),
-                     type = "message", duration = 2)
-  })
+  },
+  ignoreInit = TRUE)
 
   # Observateur pour TBE
   observeEvent({input$decennie_tbe
