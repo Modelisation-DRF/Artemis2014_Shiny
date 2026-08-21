@@ -676,16 +676,6 @@ server <- function(input, output, session) {
                         uiOutput("add_grade3_button"),
                         uiOutput("grade3_section")),
 
-                        div(class = "mt-3 me-2 mb-2 text-center",
-
-                            actionButton(
-                              "calculer_billonnage",
-                              "Simuler le billonnage",
-                              class = "btn btn-primary w-100",
-                              icon = icon("calculator")
-                            )
-                        ),
-
                         div(class = "mt-3 me-2 mb-2",
 
                             downloadButton(
@@ -2892,208 +2882,9 @@ server <- function(input, output, session) {
     }
   })
 
-  # Billonage
-  observeEvent(input$calculer_billonnage, {
-
-    req(input$dhs_input, input$typeBillonnage, rv$resultats_simulation)
-
-    # Validation
-    if (input$nom_grade1 == "" || is.na(input$diam_grade1)) {
-
-      showNotification(
-        "Grade 1 : Le nom et le diamètre sont obligatoires",
-        type = "error",
-        duration = 5
-      )
-      return()
-    }
-
-    if (isTRUE(rv$show_grade2) &&
-        (input$nom_grade2 == "" || is.na(input$diam_grade2))) {
-
-      showNotification(
-        "Grade 2 : Le nom et le diamètre sont obligatoires",
-        type = "error",
-        duration = 5
-      )
-      return()
-    }
-
-    if (isTRUE(rv$show_grade3) &&
-        (input$nom_grade3 == "" || is.na(input$diam_grade3))) {
-
-      showNotification(
-        "Grade 3 : Le nom et le diamètre sont obligatoires",
-        type = "error",
-        duration = 5
-      )
-      return()
-    }
-
-
-    withProgress(message = "Calcul du billonnage en cours...", value = 0, {
-
-      incProgress(0.1, detail = "Validation des paramètres...")
-
-      dhs_val <- as.numeric(input$dhs_input)
-      simplifier_val <- input$simplifier
-
-      suppressWarnings({
-
-        incProgress(0.2, detail = "Traitement des longueurs...")
-
-        long_grade1_val <- if (is.null(input$long_grade1) || input$long_grade1 == "Indéfini") {
-          NA_real_
-        } else {
-          as.numeric(input$long_grade1)
-        }
-
-        long_grade2_val <- NA_real_
-        if (isTRUE(rv$show_grade2) && !is.null(input$long_grade2)) {
-
-          long_grade2_val <- if (input$long_grade2 =="Indéfini") {
-            NA_real_
-          } else {
-            as.numeric(input$long_grade2)
-          }
-        }
-
-        long_grade3_val <- NA_real_
-        if (isTRUE(rv$show_grade3) && !is.null(input$long_grade3)) {
-
-          long_grade3_val <- if (input$long_grade3 == "Indéfini") {
-            NA_real_
-          } else {
-            as.numeric(input$long_grade3)
-          }
-        }
-
-        incProgress(0.3, detail = "Traitement des diamètres...")
-
-        diam_grade1_val <- if (is.null(input$diam_grade1) || is.na(input$diam_grade1)) {
-          NA_real_
-        } else {
-          as.numeric(input$diam_grade1)
-        }
-
-        diam_grade2_val <- if (isTRUE(rv$show_grade2) &&
-                               !is.null(input$diam_grade2) &&
-                               !is.na(input$diam_grade2)) {
-          as.numeric(input$diam_grade2)
-        } else {
-          NA_real_
-        }
-
-        diam_grade3_val <- if (isTRUE(rv$show_grade3) &&
-                               !is.null(input$diam_grade3) &&
-                               !is.na(input$diam_grade3)) {
-          as.numeric(input$diam_grade3)
-        } else {
-          NA_real_
-        }
-
-        incProgress(0.4, detail = "Préparation des noms de grades...")
-
-        nom_grade1_val <- as.character(input$nom_grade1)
-
-        nom_grade2_val <- if (isTRUE(rv$show_grade2) &&
-                              !is.null(input$nom_grade2) &&
-                              input$nom_grade2 != "") {
-          as.character(input$nom_grade2)
-        } else {
-          NA_character_
-        }
-
-        nom_grade3_val <- if (isTRUE(rv$show_grade3) &&
-                              !is.null(input$nom_grade3) &&
-                              input$nom_grade3 != "") {
-          as.character(input$nom_grade3)
-        } else {
-          NA_character_
-        }
-      })
-
-      incProgress(0.5, detail = "Exécution du calcul...")
-
-      tryCatch({
-
-        rv$processed_Billonage <- SortieBillesFusion(
-          Data = rv$resultats_simulation,
-          Type = as.character(input$typeBillonnage),
-          dhs = dhs_val,
-          nom_grade1 = nom_grade1_val,
-          long_grade1 = long_grade1_val,
-          diam_grade1 = diam_grade1_val,
-          nom_grade2 = nom_grade2_val,
-          long_grade2 = long_grade2_val,
-          diam_grade2 = diam_grade2_val,
-          nom_grade3 = nom_grade3_val,
-          long_grade3 = long_grade3_val,
-          diam_grade3 = diam_grade3_val,
-          Simplifier = simplifier_val
-        )
-
-        rv$processed_Simul <- rv$processed_Billonage
-
-        incProgress(1, detail = "Terminé")
-
-        showNotification(
-          "Billonnage simulé avec succès!",
-          type = "message",
-          duration = 3
-        )
-
-      }, error = function(e) {
-
-        showNotification(
-          paste("Erreur:", e$message),
-          type = "error",
-          duration = 5
-        )
-
-        rv$processed_Billonage <- NULL
-        rv$processed_Simul <- NULL
-      })
-    })
-
-    # Billoange calculé
-    updateActionButton(
-      session,
-      "calculer_billonnage",
-      label = "Billonnage simulé",
-      icon = icon("check")
-    )
-
-  })
-
-  # Réinitialisé texte sur le bouton
-  observeEvent({
-    input$nom_grade1
-    input$diam_grade1
-    input$long_grade1
-    input$nom_grade2
-    input$diam_grade2
-    input$long_grade2
-    input$nom_grade3
-    input$diam_grade3
-    input$long_grade3
-    input$typeBillonnage
-    input$dhs_input
-    input$simplifier
-    input$Sortie}, {
-
-    updateActionButton(
-      session,
-      "calculer_billonnage",
-      label = "Simuler le billonnage",
-      icon = icon("calculator")
-    )
-
-  }, ignoreInit = TRUE)
-
-
   # Download résultat
   output$download_resultats_custom <- downloadHandler(
+    # Télécharger les résultats
     filename = function() {
       if(!(input$Sortie == "echelle_billon")){
 
@@ -3105,6 +2896,168 @@ server <- function(input, output, session) {
       }
     },
     content = function(file) {
+      req(input$dhs_input, input$typeBillonnage, rv$resultats_simulation)
+
+      # Validation
+      if (input$nom_grade1 == "" || is.na(input$diam_grade1)) {
+
+        showNotification(
+          "Grade 1 : Le nom et le diamètre sont obligatoires",
+          type = "error",
+          duration = 5
+        )
+        return()
+      }
+
+      if (isTRUE(rv$show_grade2) &&
+          (input$nom_grade2 == "" || is.na(input$diam_grade2))) {
+
+        showNotification(
+          "Grade 2 : Le nom et le diamètre sont obligatoires",
+          type = "error",
+          duration = 5
+        )
+        return()
+      }
+
+      if (isTRUE(rv$show_grade3) &&
+          (input$nom_grade3 == "" || is.na(input$diam_grade3))) {
+
+        showNotification(
+          "Grade 3 : Le nom et le diamètre sont obligatoires",
+          type = "error",
+          duration = 5
+        )
+        return()
+      }
+
+
+      withProgress(message = "Calcul du billonnage en cours...", value = 0, {
+
+        incProgress(0.1, detail = "Validation des paramètres...")
+
+        dhs_val <- as.numeric(input$dhs_input)
+        simplifier_val <- input$simplifier
+
+        suppressWarnings({
+
+          incProgress(0.2, detail = "Traitement des longueurs...")
+
+          long_grade1_val <- if (is.null(input$long_grade1) || input$long_grade1 == "Indéfini") {
+            NA_real_
+          } else {
+            as.numeric(input$long_grade1)
+          }
+
+          long_grade2_val <- NA_real_
+          if (isTRUE(rv$show_grade2) && !is.null(input$long_grade2)) {
+
+            long_grade2_val <- if (input$long_grade2 =="Indéfini") {
+              NA_real_
+            } else {
+              as.numeric(input$long_grade2)
+            }
+          }
+
+          long_grade3_val <- NA_real_
+          if (isTRUE(rv$show_grade3) && !is.null(input$long_grade3)) {
+
+            long_grade3_val <- if (input$long_grade3 == "Indéfini") {
+              NA_real_
+            } else {
+              as.numeric(input$long_grade3)
+            }
+          }
+
+          incProgress(0.3, detail = "Traitement des diamètres...")
+
+          diam_grade1_val <- if (is.null(input$diam_grade1) || is.na(input$diam_grade1)) {
+            NA_real_
+          } else {
+            as.numeric(input$diam_grade1)
+          }
+
+          diam_grade2_val <- if (isTRUE(rv$show_grade2) &&
+                                 !is.null(input$diam_grade2) &&
+                                 !is.na(input$diam_grade2)) {
+            as.numeric(input$diam_grade2)
+          } else {
+            NA_real_
+          }
+
+          diam_grade3_val <- if (isTRUE(rv$show_grade3) &&
+                                 !is.null(input$diam_grade3) &&
+                                 !is.na(input$diam_grade3)) {
+            as.numeric(input$diam_grade3)
+          } else {
+            NA_real_
+          }
+
+          incProgress(0.4, detail = "Préparation des noms de grades...")
+
+          nom_grade1_val <- as.character(input$nom_grade1)
+
+          nom_grade2_val <- if (isTRUE(rv$show_grade2) &&
+                                !is.null(input$nom_grade2) &&
+                                input$nom_grade2 != "") {
+            as.character(input$nom_grade2)
+          } else {
+            NA_character_
+          }
+
+          nom_grade3_val <- if (isTRUE(rv$show_grade3) &&
+                                !is.null(input$nom_grade3) &&
+                                input$nom_grade3 != "") {
+            as.character(input$nom_grade3)
+          } else {
+            NA_character_
+          }
+        })
+
+        incProgress(0.5, detail = "Exécution du calcul...")
+
+        tryCatch({
+
+          rv$processed_Billonage <- SortieBillesFusion(
+            Data = rv$resultats_simulation,
+            Type = as.character(input$typeBillonnage),
+            dhs = dhs_val,
+            nom_grade1 = nom_grade1_val,
+            long_grade1 = long_grade1_val,
+            diam_grade1 = diam_grade1_val,
+            nom_grade2 = nom_grade2_val,
+            long_grade2 = long_grade2_val,
+            diam_grade2 = diam_grade2_val,
+            nom_grade3 = nom_grade3_val,
+            long_grade3 = long_grade3_val,
+            diam_grade3 = diam_grade3_val,
+            Simplifier = simplifier_val
+          )
+
+          rv$processed_Simul <- rv$processed_Billonage
+
+          incProgress(1, detail = "Terminé")
+
+          showNotification(
+            "Billonnage simulé avec succès!",
+            type = "message",
+            duration = 3
+          )
+
+        }, error = function(e) {
+
+          showNotification(
+            paste("Erreur:", e$message),
+            type = "error",
+            duration = 5
+          )
+
+          rv$processed_Billonage <- NULL
+          rv$processed_Simul <- NULL
+        })
+      })
+
+
       # Utiliser le dataframe résultant de la simulation
       if (!is.null(rv$processed_Simul)) {
         write.table(rv$processed_Simul, file, sep = ";", row.names = FALSE)
