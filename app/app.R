@@ -323,9 +323,8 @@ server <- function(input, output, session) {
                 tags$h4("Données climatiques", class = "text-center mb-3"),
                 tags$p("Exemples de fichiers CSV contenant les données climatiques pour les simulations.", class = "text-center"),
                 tags$div(
-                  class = "d-flex justify-content-center gap-2 mt-3",
-                  downloadButton("download_climat_annuel", "Climat annuel", class = "btn btn-primary"),
-                  downloadButton("download_climat_mensuel", "Climat mensuel", class = "btn btn-primary")
+                  class = "text-center mt-3",
+                  downloadButton("download_climat", "Télécharger", class = "btn btn-primary")
                 )
               )
             )
@@ -748,21 +747,12 @@ server <- function(input, output, session) {
     }
   )
 
-  output$download_climat_annuel<- downloadHandler(
+  output$download_climat<- downloadHandler(
     filename = function() {
-      "Donnees_ClimAn_Exemple_Artemis.csv"
+      "Donnees_Clim_Exemple_Artemis.csv"
     },
     content = function(file) {
-      file.copy("data/ClimAn_Exemple.csv", file)
-    }
-  )
-
-  output$download_climat_mensuel<- downloadHandler(
-    filename = function() {
-      "Donnees_ClimMois_Exemple_Artemis.csv"
-    },
-    content = function(file) {
-      file.copy("data/ClimMois_Exemple.csv", file)
+      file.copy("data/ClimTot_Exemple.csv", file)
     }
   )
 
@@ -794,8 +784,7 @@ server <- function(input, output, session) {
     data_valid = FALSE,
     extraction_choice_made = FALSE,
     extraction_completed = FALSE,
-    climat_annuel = NULL,
-    climat_mensuel = NULL,
+    climat_tot = NULL,
     extraction_option = NULL,
     extraction_horizon = NULL,
     age_moy_valid = TRUE,
@@ -822,8 +811,7 @@ server <- function(input, output, session) {
     rv$data_valid <- FALSE
     rv$extraction_choice_made <- FALSE
     rv$extraction_completed <- FALSE
-    rv$climat_annuel <- NULL
-    rv$climat_mensuel <- NULL
+    rv$climat_tot <- NULL
     rv$max_annees_simulation <- NA
     rv$simulation_terminee <- FALSE
 
@@ -1165,19 +1153,8 @@ server <- function(input, output, session) {
           # Fichier climat annuel
           div(class = "mb-2",
               fileInput(
-                "climat_annuel_file",
-                "Fichier climat annuel (CSV)",
-                buttonLabel = "Parcourir",
-                placeholder = "Aucun fichier sélectionné",
-                accept = c( "text/csv", "text/comma-separated-values,text/plain", ".csv")
-              )
-          ),
-
-          # Fichier climat mensuel
-          div(class = "mb-2",
-              fileInput(
-                "climat_mensuel_file",
-                "Fichier climat mensuel (CSV)",
+                "climat_tot_file",
+                "Fichier climat (CSV)",
                 buttonLabel = "Parcourir",
                 placeholder = "Aucun fichier sélectionné",
                 accept = c( "text/csv", "text/comma-separated-values,text/plain", ".csv")
@@ -1198,8 +1175,8 @@ server <- function(input, output, session) {
           div(
             class = "d-flex justify-content-end mt-2",
             actionButton(
-              "validate_climat_files",
-              "Valider les fichiers climatiques",
+              "validate_climat_file",
+              "Valider le fichier climatique",
               class = "btn btn-sm btn-primary",
               icon = icon("check")
             )
@@ -1215,8 +1192,7 @@ server <- function(input, output, session) {
       output$extraction_button_final <- renderUI({})
 
       # Définir les variables climatiques comme NULL pour indiquer qu'elles ne sont pas utilisées
-      rv$climat_annuel <- NULL
-      rv$climat_mensuel <- NULL
+      rv$climat_tot <- NULL
       rv$max_annees_simulation <- NA
 
       # Mettre à jour l'état indiquant que le processus est terminé
@@ -1227,103 +1203,57 @@ server <- function(input, output, session) {
     }
   })
 
-  # Ajouter un nouvel observateur pour la validation des fichiers climatiques importés
-  observeEvent(input$validate_climat_files, {
+  # Ajouter un nouvel observateur pour la validation du fichier climatique importé
+  observeEvent(input$validate_climat_file, {
     # Vérifier que les deux fichiers ont été téléversés
-    if (is.null(input$climat_annuel_file) || is.null(input$climat_mensuel_file)) {
+    if (is.null(input$climat_tot_file) ) {
       showNotification(
-        "Veuillez téléverser les deux fichiers climatiques (annuel et mensuel).",
+        "Veuillez téléverser le fichier climatique",
         type = "error",
         duration = 5
       )
       return()
     }
 
-    # Lire les fichiers climatiques téléversés
+    # Lire le fichier climatique téléversé
     tryCatch({
-      # Lire le fichier climat annuel
-      climat_annuel <- read.csv(input$climat_annuel_file$datapath,
+      # Lire le fichier climat
+      climat_tot <- read.csv(input$climat_tot_file$datapath,
                                 header = TRUE,
-                                sep = ";")
-
-      # Lire le fichier climat mensuel
-      climat_mensuel <- read.csv(input$climat_mensuel_file$datapath,
-                                 header = TRUE,
-                                 sep = ";")
+                                sep = ",")
 
       # Vérifier les fichiers avec les fonctions du package Artemis
-      erreurs_annuel <- verifier_colonnes_ClimAn(climat_annuel)
-      erreurs_annuel <- c(erreurs_annuel, validation_annuel(data(), climat_annuel,input$rcp))
-      erreurs_mensuel <- verifier_colonnes_Clim(climat_mensuel)
-      erreurs_mensuel <- c(erreurs_mensuel, validation_mensuel(data(), climat_mensuel,input$rcp))
-      erreurs_mensuel <- c(erreurs_mensuel, valider_Mois(climat_mensuel,input$rcp) )
-
-
-      # Valider que le fichier annuel et mensuel sont cohérents
-      erreurs_comparaison <- comparer_annee_scenario(data(), climat_annuel,climat_mensuel,input$rcp)
-      #erreurs_comparaison <- NULL
+      erreurs_tot <- verifier_colonnes_ClimTot(climat_tot)
+      erreurs_tot <- c(erreurs_tot, validation_total(data(), climat_tot,input$rcp))
 
       # Vérifier s'il y a des erreurs
-      if (length(erreurs_annuel) > 0 || length(erreurs_mensuel) > 0 || length(erreurs_comparaison) > 0 ) {
+      if (length(erreurs_tot) > 0) {
         showModal(modalDialog(
           div(class = "",
-             h3("Erreurs dans les fichiers climatiques")),
+             h3("Erreurs dans le fichier climatique")),
           div( class="overflow-auto",
             style = "max-height: 400px;",
 
-            # Section pour l'afficahge des erreurs du fichier climat annuel
-            if (length(erreurs_annuel) > 0) {
+            # Section pour l'afficahge des erreurs du fichier climat
+            if (length(erreurs_tot) > 0) {
               div(class = "alert alert-danger mb-3",
                 h6(class = "mt-0 mb-2",
-                  paste0( "Erreurs dans le fichier climat annuel (",
-                    input$climat_annuel_file$name,"):"
+                  paste0( "Erreurs dans le fichier climat (",
+                    input$climat_tot_file$name,"):"
                   )
                 ),
                 tags$ul(class = "small ps-3 mb-0",
-                  lapply(erreurs_annuel, tags$li)
+                  lapply(erreurs_tot, tags$li)
                 )
               )
             },
-
-            # Section pour l'afficahge des erreurs du fichier climat mensuel
-            if (length(erreurs_mensuel) > 0) {
-              div(class = "alert alert-danger mb-3",
-                h6(class = "mt-0 mb-2",
-                  paste0( "Erreurs dans le fichier climat mensuel (",
-                    input$climat_mensuel_file$name, "):"
-                  )
-                ),
-                tags$ul(
-                  class = "small ps-3 mb-0",
-                  lapply(erreurs_mensuel, tags$li)
-                )
-              )
-            },
-            # Section pour l'affichage des incohérences entre fichiers
-            if (length(erreurs_comparaison) > 0 ){
-              div(
-                class = "alert alert-warning",
-                h6( class = "mt-0 mb-2",
-                  paste0( "Incohérence entre les fichiers : ",
-                    input$climat_annuel_file$name,
-                    " et ",
-                    input$climat_mensuel_file$name
-                  )
-                ),
-                tags$ul(
-                  class = "small ps-3 mb-0",
-                  lapply(erreurs_comparaison, tags$li)
-                )
-              )
-
-            }
           ),
           # Footer
           footer = tagList(
 
             div(class = "text-center w-100",
               p(class = "fst-italic mb-2",
-                "Veuillez corriger les erreurs et réimporter les fichiers."
+                "Veuillez corriger les erreurs et réimporter le fichier."
               ),
               modalButton("Fermer")
             )
@@ -1336,13 +1266,12 @@ server <- function(input, output, session) {
         return()
       } else {
         # Si aucune erreur, stocker les données dans les variables réactives
-        rv$climat_annuel <- climat_annuel
-        rv$climat_mensuel <- climat_mensuel
-        rv$max_annees_simulation <- floor(extraire_nb_annee(climat_annuel,AnneeDep=as.numeric(format(Sys.Date(), "%Y")))/10)*10
+        rv$climat_tot <- climat_tot
+        rv$max_annees_simulation <- floor(extraire_nb_annee(climat_tot,AnneeDep=as.numeric(format(Sys.Date(), "%Y")))/10)*10
 
         # Afficher une notification de succès
         showNotification(
-          "Fichiers climatiques validés et importés avec succès !",
+          "Fichier climatique validé et importé avec succès !",
           type = "message",
           duration = 5
         )
@@ -1361,7 +1290,7 @@ server <- function(input, output, session) {
     }, error = function(e) {
       # Afficher une notification d'erreur
       showNotification(
-        paste("Erreur lors de l'importation des fichiers climatiques:", e$message),
+        paste("Erreur lors de l'importation du fichier climatique:", e$message),
         type = "error",
         duration = 10
       )
@@ -1462,16 +1391,15 @@ server <- function(input, output, session) {
 
     # Appeler la fonction GenereClimat
     result <- tryCatch({
-      GenereClimat(Data_Ori= data() ,AnneeDep = annee_depart,AnneeFin = annee_fin,  RCP = rcp)
+      GenereClimatRaster(Data= data(),AnneeDep = annee_depart,AnneeFin = annee_fin,  RCP = rcp)
     }, error = function(e) {
       showNotification(paste("Erreur lors de la simulation:", e$message), type = "error", duration = 10)
       return(NULL)
     })
 
     # Stocker les résultats dans les variables réactives
-    if (!is.null(result) && length(result) == 2) {
-      rv$climat_annuel <- result[[1]]
-      rv$climat_mensuel <- result[[2]]
+    if (!is.null(result)) {
+      rv$climat_tot <- result
       rv$extraction_horizon <- horizon/10  # Stocker l'horizon utilisé pour l'extraction
     }
 
@@ -1513,16 +1441,10 @@ server <- function(input, output, session) {
         div(class = "d-flex justify-content-center gap-2 mt-3",
 
           downloadButton(
-            "download_annuel",
-            "Climat annuel",
+            "download_tot",
+            "Climat",
             class = "btn btn-primary"
           ),
-
-          downloadButton(
-            "download_mensuel",
-            "Climat mensuel",
-            class = "btn btn-primary"
-          )
         )
       ),
 
@@ -1539,23 +1461,13 @@ server <- function(input, output, session) {
   })
 
   # Télécharger simulation annuelle
-  output$download_annuel <- downloadHandler(
+  output$download_tot <- downloadHandler(
     filename = function() {
-      paste("climat_annuel_", input$annee_depart, "_", input$annee_depart + input$horizon - 1, "_", input$rcp, ".csv", sep = "")
+      paste("climat_total_", input$annee_depart, "_", input$annee_depart + input$horizon - 1, "_", input$rcp, ".csv", sep = "")
     },
     content = function(file) {
 
-      write.table(rv$climat_annuel, file, sep = ";", row.names = FALSE)
-    }
-  )
-
-  # Télécharger simulation mensuelle
-  output$download_mensuel <- downloadHandler(
-    filename = function() {
-      paste("climat_mensuel_", input$annee_depart, "_", input$annee_depart + input$horizon - 1, "_", input$rcp, ".csv", sep = "")
-    },
-    content = function(file) {
-      write.table(rv$climat_mensuel, file, sep = ";", row.names = FALSE)
+      write.table(rv$climat_tot, file, sep = ",", row.names = FALSE)
     }
   )
 
@@ -2340,7 +2252,7 @@ server <- function(input, output, session) {
 
     # Si données climatiques sont requises mais pas disponibles (pas pour option "none")
     if (!is.null(rv$extraction_option) && rv$extraction_option != "none" &&
-        (is.null(rv$climat_annuel) || is.null(rv$climat_mensuel))) {
+        (is.null(rv$climat_tot))) {
       showNotification(
         "Les données climatiques sont nécessaires pour lancer la simulation.",
         type = "error",
@@ -2471,8 +2383,7 @@ server <- function(input, output, session) {
       simulateurArtemis(
         Data_ori = data(),
         Horizon = Horizon,
-        ClimMois = rv$climat_mensuel,
-        ClimAn = rv$climat_annuel,
+        ClimTot = rv$climat_tot,
         Tendance = Tendance,
         Residuel = Residuel,
         EvolClim = EvolClim,
