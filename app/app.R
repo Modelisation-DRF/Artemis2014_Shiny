@@ -60,6 +60,12 @@ ui <- fluidPage(
       if (msg.checked === true) { $('#coupe_details').prop('open', true);}
       });   ")),
 
+    # Désactivation du module de mortalité si maladie corticale du hêtre = Oui
+    tags$script(HTML("
+      Shiny.addCustomMessageHandler('toggle_mortalite', function(msg){
+      $('#module_mortalite').prop('disabled', msg.disable === true);
+      });   ")),
+
     # Style boite de placette
     tags$style(HTML("
     .bootstrap-select .dropdown-menu li {
@@ -1548,9 +1554,7 @@ server <- function(input, output, session) {
             tagList(
               tags$script(HTML("
         $(document).ready(function() {
-          $('#module_accroissement option[value=\"brt\"]').prop('disabled', true);
-          $('#module_accroissement option[value=\"gam\"]').prop('disabled', true);
-          $('#module_accroissement option[value=\"fortin\"]').prop('disabled', true);
+          $('#module_accroissement').prop('disabled', true);
         });
       ")),
             )
@@ -1586,8 +1590,7 @@ server <- function(input, output, session) {
             tagList(
               tags$script(HTML("
         $(document).ready(function() {
-          $('#module_mortalite option[value=\"que\"]').prop('disabled', true);
-          $('#module_mortalite option[value=\"caneu\"]').prop('disabled', true);
+          $('#module_mortalite').prop('disabled', true);
         });
       ")),
 
@@ -1596,6 +1599,18 @@ server <- function(input, output, session) {
                 icon("info-circle", class = "me-1"),
                 "Les modules d'accroissement et de mortalité sensibles au climat  ",
                 "sont désactivés car aucune donnée climatique n'est fournie."
+              )
+            )
+          },
+
+          # Message utilisateur lorsque la maladie corticale du hêtre est activée
+          # (masqué en mode sans données climatiques, où le grisage prédomine)
+          if (!no_climate_data) {
+            conditionalPanel(
+              condition = "input.mch == 'Oui'",
+              div(class = "small fst-italic text-muted mt-1 pe-2",
+                icon("info-circle", class = "me-1"),
+                "Le module de mortalité est désactivé par la sélection de la maladie corticale du hêtre."
               )
             )
           }
@@ -1814,6 +1829,21 @@ server <- function(input, output, session) {
       session$sendCustomMessage("toggle_tbe", list(disable = desactiver_tbe, checked = !desactiver_tbe))
     }
   )
+
+  # Forcer le module de mortalité à "Original" si maladie corticale du hêtre = Oui
+  # (ignoré en mode sans données climatiques : le menu est déjà grisé au rendu)
+  observeEvent(list(input$mch, rv$extraction_option), {
+    no_climate <- !is.null(rv$extraction_option) && rv$extraction_option == "none"
+    if (no_climate) {
+      return(invisible(NULL))
+    }
+    if (identical(input$mch, "Oui")) {
+      updateSelectInput(session, "module_mortalite", selected = "original")
+      session$sendCustomMessage("toggle_mortalite", list(disable = TRUE))
+    } else {
+      session$sendCustomMessage("toggle_mortalite", list(disable = FALSE))
+    }
+  }, ignoreInit = FALSE)
 
   # Observateur pour TBE
   observeEvent(input$enable_tbe, {
