@@ -27,6 +27,11 @@ options(shiny.maxRequestSize = 500 * 1024^2)
 is_rstudio <- Sys.getenv("RSTUDIO") == "1"
 is_interactive_session <- interactive() && is_rstudio
 
+# Drapeau global indiquant qu'une réinitialisation (rechargement de la page)
+# est en cours. Permet à onSessionEnded de NE PAS quitter R lors d'un reset,
+# car la fermeture de la session déclenche normalement q() en mode VBS.
+.artemis_reset_en_cours <- FALSE
+
 # Extraction information sur version du package Artemis
 version_artemis <- as.character(packageVersion("Artemis2014"))
 desc <- packageDescription("Artemis2014")
@@ -188,6 +193,14 @@ server <- function(input, output, session) {
     # Nettoyage mémoire
     gc()
     message("Session fermée.")
+
+    # Si une réinitialisation est en cours, la page va se recharger :
+    # on ne quitte PAS R, on réarme simplement le drapeau.
+    if (.artemis_reset_en_cours) {
+      .artemis_reset_en_cours <<- FALSE
+      message("Réinitialisation : R reste actif, la page se recharge.")
+      return(invisible(NULL))
+    }
 
     # Quitter R seulement si on n'est PAS dans RStudio (lancé via VBS)
     if (!is_interactive_session) {
@@ -3026,6 +3039,8 @@ server <- function(input, output, session) {
   # Réinitialisation
   observeEvent(input$confirm_reset, {
     rv$simulation_terminee <- FALSE
+    # Signaler qu'il s'agit d'un reset pour que onSessionEnded ne quitte pas R
+    .artemis_reset_en_cours <<- TRUE
     session$reload()
   })
 
