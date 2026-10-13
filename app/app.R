@@ -1426,8 +1426,8 @@ server <- function(input, output, session) {
           div( class = "alert alert-danger d-flex align-items-center",
                icon("circle-xmark", class = "me-2"),
                div(
-               tags$strong("Corrigez les coordonnées géographiques: "),
-               "Une ou plusieurs placettes sont à l'extérieur de l'étendue des rasters climatiques.")
+               tags$strong("Vérifiez les coordonnées géographiques: "),
+               "Une ou plusieurs placettes situées à l'extérieur de l'étendue des données climatiques.")
           )
       })
       return()
