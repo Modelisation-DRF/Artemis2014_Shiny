@@ -122,8 +122,8 @@ packages_github <- c(
   "Artemis2014",
   "BillonnagePetro",
   "ExtractMap",
-  "OutilsDRF",
-  "BioSIM"
+  "OutilsDRF"
+ # "BioSIM"  Biosim n'est plus requis depuis qu'on prend le climat d'Extract map
 )
 
 # ============================================================================

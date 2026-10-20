@@ -9,7 +9,6 @@ library(shinydashboard)
 library(shinyWidgets)
 library(ggplot2)
 library(dplyr)
-library(BioSIM)
 library(ExtractMap)
 library(plotly)
 library(BillonnagePetro)
@@ -50,6 +49,12 @@ ui <- fluidPage(
       var collapseElement = document.getElementById('collapse_import');
       var bsCollapse = new bootstrap.Collapse(collapseElement, {
         toggle: false }); bsCollapse.hide();});")),
+
+    tags$script(HTML("
+    Shiny.addCustomMessageHandler('collapse_import_open', function(message) {
+      var collapseElement = document.getElementById('collapse_import');
+      var bsCollapse = new bootstrap.Collapse(collapseElement, {
+        toggle: false }); bsCollapse.show();});")),
 
     # Ouverture/fermture section tbe
     tags$script(HTML("
@@ -408,6 +413,7 @@ server <- function(input, output, session) {
                      ,
                       uiOutput("validation_status"),
                       uiOutput("error_box"),
+                     uiOutput("error_box_sim"),
                       uiOutput("Avertissement_box"),
                       uiOutput("Info_box"),
                       uiOutput("extraction_question"),
@@ -838,6 +844,7 @@ server <- function(input, output, session) {
     output$extraction_question <- renderUI({})
     output$extraction_button <- renderUI({})
     output$simulation_message <- renderUI({})
+    output$error_box_sim <- renderUI({})
 
     showNotification("Chargement des données en cours...", type = "message", duration = 3)
 
@@ -917,6 +924,7 @@ server <- function(input, output, session) {
   output$error_box <- renderUI({
     req(validation_errors())
     errors <- validation_errors()
+    print(length(errors))
     if (length(errors) > 0){
       div( class = "alert alert-danger ",
            tags$strong("Erreurs détectées: "),
@@ -928,6 +936,7 @@ server <- function(input, output, session) {
         )
       )
     }
+    else {NULL}
   })
 
   # Afficher les avertissements
@@ -1105,14 +1114,14 @@ server <- function(input, output, session) {
               )
           ),
 
-          div(class = "fw-bold mb-1 text-primary", "Scénario RCP :"),
+          div(class = "fw-bold mb-1 text-primary", "Scénario CMIP6 :"),
 
           # Choisir le scénario
           div(class = "mb-2 small",
               radioButtons(
-                "rcp",NULL,
-                choices = list("RCP 4.5" = "RCP45", "RCP 8.5" = "RCP85"),
-                selected = "RCP45"
+                "ssp",NULL,
+                choices = list("SSP245" = "SSP245", "SSP370" = "SSP370"),
+                selected = "SSP245"
               )
           ),
 
@@ -1149,12 +1158,12 @@ server <- function(input, output, session) {
           ),
 
           # Choisi le scénario
-          div(class = "fw-bold mb-1 text-primary", "Scénario RCP :"),
+          div(class = "fw-bold mb-1 text-primary", "Scénario CMIP6 :"),
           div(class = "mb-2 small",
               radioButtons(
-                "rcp",NULL,
-                choices = list("RCP 4.5" = "RCP45", "RCP 8.5" = "RCP85"),
-                selected = "RCP45"
+                "ssp",NULL,
+                choices = list("SSP245" = "SSP245", "SSP370" = "SSP370"),
+                selected = "SSP245"
               )
           ),
 
@@ -1211,7 +1220,7 @@ server <- function(input, output, session) {
 
       # Vérifier les fichiers avec les fonctions du package Artemis
       erreurs_tot <- verifier_colonnes_ClimTot(climat_tot)
-      erreurs_tot <- c(erreurs_tot, validation_total(data(), climat_tot,input$rcp))
+      erreurs_tot <- c(erreurs_tot, validation_total(data(), climat_tot,input$ssp))
 
       # Vérifier s'il y a des erreurs
       if (length(erreurs_tot) > 0) {
@@ -1288,7 +1297,7 @@ server <- function(input, output, session) {
 # ------------------- Section configuration de la simulation ------------------
   # Rendre le bouton d'extraction final (option simuler les données climatiques)
   output$extraction_button_final <- renderUI({
-    req(input$annee_depart, input$horizon, input$rcp)
+    req(input$annee_depart, input$horizon, input$ssp)
 
     # Cas erreur
     if (input$horizon < 10 || input$horizon %% 10 != 0) {
@@ -1319,7 +1328,7 @@ server <- function(input, output, session) {
             input$annee_depart, " - ",
             input$annee_depart + input$horizon,
             " | Scénario : ",
-            ifelse(input$rcp == "RCP45", "RCP 4.5", "RCP 8.5")
+            ifelse(input$ssp == "SSP245", "SSP245", "SSP370")
           )
         )
 
@@ -1331,7 +1340,7 @@ server <- function(input, output, session) {
   # Action pour l'extraction climatique
   observeEvent(input$extract_climate, {
     # Vérifier les paramètres
-    req(input$annee_depart, input$horizon, input$rcp)
+    req(input$annee_depart, input$horizon, input$ssp)
 
     # S'assurer que l'horizon est d'au moins 10 ans
     if (input$horizon < 10) {
@@ -1347,7 +1356,7 @@ server <- function(input, output, session) {
     annee_depart <- input$annee_depart
     horizon <- input$horizon
     annee_fin <- annee_depart + horizon
-    rcp <- input$rcp
+    ssp <- input$ssp
 
     showModal(modalDialog(
       title = "Simulation en cours",
@@ -1367,7 +1376,7 @@ server <- function(input, output, session) {
           paste0(
             "Paramètres : Année de départ = ", annee_depart,
             ", Horizon = ", horizon, " ans (jusqu'à ", annee_fin,
-            "), Scénario = ", rcp
+            "), Scénario = ", ssp
           )
         )
       ),
@@ -1378,16 +1387,49 @@ server <- function(input, output, session) {
 
     # Appeler la fonction GenereClimat
     result <- tryCatch({
-      GenereClimatRaster(Data= data(),AnneeDep = annee_depart,AnneeFin = annee_fin,  RCP = rcp)
+      GenereClimatRaster(Data= data(),AnneeDep = annee_depart,AnneeFin = annee_fin,  SSP = ssp)
     }, error = function(e) {
       showNotification(paste("Erreur lors de la simulation:", e$message), type = "error", duration = 10)
       return(NULL)
     })
 
-    # Stocker les résultats dans les variables réactives
+        # Stocker les résultats dans les variables réactives
     if (!is.null(result)) {
       rv$climat_tot <- result
       rv$extraction_horizon <- horizon/10  # Stocker l'horizon utilisé pour l'extraction
+    }
+    #Si donnée à l'exterieur du raster. Erreur de couverture.
+    else{
+     #showNotification("ExtractMap a retourné des valeurs nulles pour certains points, vérifiez les coordonnées géographiques", type = "error", duration = 15)
+      removeModal()
+      # Collapse importation de données
+      session$sendCustomMessage(
+        type = "collapse_import_open",
+        message = list()
+      )
+      #Réinitialiser les données d'entrées
+      rv$data_valid <- FALSE
+      rv$extraction_choice_made <- FALSE
+      rv$extraction_completed <- FALSE
+      rv$climat_tot <- NULL
+      rv$max_annees_simulation <- NA
+      rv$simulation_terminee <- FALSE
+
+      # Vider les sorties précédentes
+      output$extraction_question <- renderUI({})
+      output$extraction_button <- renderUI({})
+      output$simulation_message <- renderUI({})
+
+      # Afficher les erreurs
+      output$error_box_sim <- renderUI({
+          div( class = "alert alert-danger d-flex align-items-center",
+               icon("circle-xmark", class = "me-2"),
+               div(
+               tags$strong("Vérifiez les coordonnées géographiques: "),
+               "Une ou plusieurs placettes situées à l'extérieur de l'étendue des données climatiques.")
+          )
+      })
+      return()
     }
 
 
@@ -1420,7 +1462,7 @@ server <- function(input, output, session) {
           tags$ul(class = "mb-0 ps-3",
             tags$li(style = "margin-bottom: 1px; padding: 0;", paste0("Année de départ : ", input$annee_depart)),
             tags$li(style = "margin-bottom: 1px; padding: 0;", paste0("Horizon : ", input$horizon)),
-            tags$li(style = "margin-bottom: 1px; padding: 0;", paste0("Scénario climatique : ", input$rcp))
+            tags$li(style = "margin-bottom: 1px; padding: 0;", paste0("Scénario climatique : ", input$ssp))
           )
         ),
 
@@ -1450,7 +1492,7 @@ server <- function(input, output, session) {
   # Télécharger simulation annuelle
   output$download_tot <- downloadHandler(
     filename = function() {
-      paste("climat_total_", input$annee_depart, "_", input$annee_depart + input$horizon - 1, "_", input$rcp, ".csv", sep = "")
+      paste("climat_total_", input$annee_depart, "_", input$annee_depart + input$horizon - 1, "_", input$ssp, ".csv", sep = "")
     },
     content = function(file) {
 
@@ -2364,10 +2406,10 @@ server <- function(input, output, session) {
                           "caneu" = "CANEU")
     }
 
-    # Déterminer le RCP à utiliser
-    RCP_value <- ifelse(!is.null(input$rcp),
-                        input$rcp,
-                        "RCP45")  # Valeur par défaut
+    # Déterminer le CMIP6 à utiliser
+    SSP_value <- ifelse(!is.null(input$ssp),
+                        input$ssp,
+                        "SSP245")  # Valeur par défaut
 
 
     coupe_on <- if (!is.null(input$enable_coupe) && input$enable_coupe) {
@@ -2400,7 +2442,7 @@ server <- function(input, output, session) {
         EvolClim = EvolClim,
         AccModif = AccModif,
         MortModif = MortModif,
-        RCP = RCP_value,
+        SSP = SSP_value,
         Coupe_ON = coupe_on,
         Coupe_modif = coupe_modif,
         TBE = tbe,
@@ -2474,7 +2516,7 @@ server <- function(input, output, session) {
                 },
 
                 if (!no_climate_data) {
-                  tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Scénario RCP : ", RCP_value))
+                  tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Scénario cmip6 : ", SSP_value))
                 }
               )
             )
@@ -2587,7 +2629,7 @@ server <- function(input, output, session) {
                 },
 
                 if (!no_climate_data) {
-                  tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Scénario RCP : ", input$rcp))
+                  tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Scénario CMIP6 : ", input$ssp))
                 }
         )
     )
