@@ -56,8 +56,7 @@ github_repo_mapping <- c(
   "Artemis2014" = "Artemis2014",
   "BillonnagePetro" = "BillonnagePetro",
   "ExtractMap" = "ExtractMap",
-  "OutilsDRF" = "OutilsDRF",
-  "BioSIM" = "BioSIM"
+  "OutilsDRF" = "OutilsDRF"
 )
 
 # Fonction pour obtenir le nom du repo GitHub
