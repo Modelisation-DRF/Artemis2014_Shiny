@@ -36,15 +36,15 @@
         "RemoteRepo": "Artemis2014",
         "RemoteUsername": "Modelisation-DRF",
         "RemoteRef": "HEAD",
-        "RemoteSha": "40018b8f2014136ba6cf037e6af0e3958177a0ef",
+        "RemoteSha": "f54c0118fc5647fd2abde2a0e05a6da97e40a96b",
         "GithubRepo": "Artemis2014",
         "GithubUsername": "Modelisation-DRF",
         "GithubRef": "HEAD",
-        "GithubSHA1": "40018b8f2014136ba6cf037e6af0e3958177a0ef",
+        "GithubSHA1": "f54c0118fc5647fd2abde2a0e05a6da97e40a96b",
         "NeedsCompilation": "no",
-        "Packaged": "2026-10-20 18:22:11 UTC; augis1",
+        "Packaged": "2026-10-21 10:41:58 UTC; augis1",
         "Author": "Hugues Power [aut, cre],\n  Junior Peumi [ctb],\n  Auger Isabelle [ctb]",
-        "Built": "R 4.5.0; ; 2026-10-20 18:22:20 UTC; windows"
+        "Built": "R 4.5.0; ; 2026-10-21 10:42:05 UTC; windows"
       }
     },
     "BillonnagePetro": {
@@ -4324,19 +4324,16 @@
   },
   "files": {
     "app.R": {
-      "checksum": "d32f3b9bf057d998715dfabb7e3f3ce3"
+      "checksum": "5126240a0c5d7e1745f8a9d955d96a3a"
     },
     "app_diagnostic.R": {
-      "checksum": "e7b7a519a6a592682094468c88e14206"
-    },
-    "cached_simulation_results.rds": {
-      "checksum": "15bdcabc4990b5da7ba61c826601ef59"
+      "checksum": "c51af3019fc266648433000b2b85986a"
     },
     "data/ClimTot_Exemple.csv": {
-      "checksum": "95ea026a4cc2d10fa9bdd22b7b8db042"
+      "checksum": "69b612872e0ab308f4f0cc79275666b9"
     },
     "data/Donnees_Exemple.csv": {
-      "checksum": "366cb2b9f16f937a0fa1e1416b37ad44"
+      "checksum": "5f20e0e3f1c4a08e33c30f0872c6c156"
     },
     "data/Modificateur.xlsx": {
       "checksum": "f9883cc3d3cf9b32b7b2080236846359"
@@ -4348,13 +4345,13 @@
       "checksum": "9ab1bca254a51c440821a01b99b0370c"
     },
     "www/MRNF_couleur.svg": {
-      "checksum": "45d6d78ca1f2131b9c06bc2fc22883a9"
+      "checksum": "dbb8faeb974fbc9cd0f4fa3d25bf62a6"
     },
     "www/signature-PIV.svg": {
       "checksum": "a69f4dc9fd5d93525f5e8043d2b64453"
     },
     "www/theme-gouvernemental.css": {
-      "checksum": "223fd01c2db231d89ba92e0243ad7049"
+      "checksum": "648570002aa3a67d50f33649ee6a7e18"
     }
   },
   "users": null
