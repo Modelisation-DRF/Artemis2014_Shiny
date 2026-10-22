@@ -17,7 +17,7 @@
         "Type": "Package",
         "Package": "Artemis2014",
         "Title": "Simulateur de croissance Artémis-2014",
-        "Version": "4.5.4",
+        "Version": "4.5.5",
         "Authors@R": "c(\n    person(\"Hugues\", \"Power\", , \"hugues.power@mrnf.gouv.qc.ca\", role = c(\"aut\", \"cre\")),\n    person(\"Junior\", \"Peumi\", , role = \"ctb\"),\n    person(\"Auger\", \"Isabelle\", , role = \"ctb\")\n  )",
         "Maintainer": "Hugues Power <hugues.power@mrnf.gouv.qc.ca>",
         "Description": "Simulateur de croissance à l'échelle de l'arbre pour les\n    forêts du Québec.  Le simulateur Artémis-2014 prévoit la mortalité,\n    l'accroissement et le recrutement d'arbres marchands dans des\n    placettes de 400 m2. Il fonctionne par pas de simulation de 10 ans. Le\n    package permet également de remplacer les fonctions de mortalité et\n    d'accroissement de base d'Artemis-2014 par des fonctions sensibles au\n    climat.",
@@ -36,15 +36,15 @@
         "RemoteRepo": "Artemis2014",
         "RemoteUsername": "Modelisation-DRF",
         "RemoteRef": "HEAD",
-        "RemoteSha": "f54c0118fc5647fd2abde2a0e05a6da97e40a96b",
+        "RemoteSha": "11dd89aaa7e45711de0cc8291a6ea41b87f47e0c",
         "GithubRepo": "Artemis2014",
         "GithubUsername": "Modelisation-DRF",
         "GithubRef": "HEAD",
-        "GithubSHA1": "f54c0118fc5647fd2abde2a0e05a6da97e40a96b",
+        "GithubSHA1": "11dd89aaa7e45711de0cc8291a6ea41b87f47e0c",
         "NeedsCompilation": "no",
-        "Packaged": "2026-10-21 10:41:58 UTC; augis1",
+        "Packaged": "2026-10-22 19:18:02 UTC; augis1",
         "Author": "Hugues Power [aut, cre],\n  Junior Peumi [ctb],\n  Auger Isabelle [ctb]",
-        "Built": "R 4.5.0; ; 2026-10-21 10:42:05 UTC; windows"
+        "Built": "R 4.5.0; ; 2026-10-22 19:18:09 UTC; windows"
       }
     },
     "BillonnagePetro": {
