@@ -628,7 +628,7 @@ server <- function(input, output, session) {
                                 "Placette" = "placette",
                                 "À l'échelle du billon" = "echelle_billon"
                               ),
-                              selected = ""
+                              selected = "arbre"
                             )
                         ),
                         # Conditional panel si "À l'échelle du billon"
@@ -925,7 +925,6 @@ server <- function(input, output, session) {
   output$error_box <- renderUI({
     req(validation_errors())
     errors <- validation_errors()
-    print(length(errors))
     if (length(errors) > 0){
       div( class = "alert alert-danger ",
            tags$strong("Erreurs détectées: "),
@@ -999,7 +998,7 @@ server <- function(input, output, session) {
 
           # Section Radio-buttons
           div(
-            class = "card-body small pt-1 pb-0 mt-0",
+            class = "card-body small pt-1 pb-0 mt-0 ps-3 pe-3",
 
             # Cas 1 : âge moyen invalide
             if (!rv$age_moy_valid) {
@@ -1048,15 +1047,17 @@ server <- function(input, output, session) {
 
             # Section du bouton suivant
             div(
-              class = "d-flex justify-content-center mt-1 mb-0",
+              #class = "d-flex justify-content-center mt-1 mb-0",
 
               actionButton(
                 "validate_extraction_choice",
                 "Suivant",
-                class = "btn btn-primary w-100",
+                class = "btn btn-primary w-100 d-flex justify-content-center align-items-center gap-2",
                 icon = icon("arrow-right")
               )
             )
+
+
           )
         )
       })
@@ -1479,11 +1480,15 @@ server <- function(input, output, session) {
       ),
 
       # Bouton suivant
-      footer = actionButton(
-        "close_extraction",
-        "Suivant",
-        class = "btn btn-primary w-100"
-      ),
+      div(class = "mt-3",
+          actionButton(
+            "close_extraction",
+            "Suivant",
+            class = "btn btn-primary",
+            style = "width: 100%; display: block;"
+          )),
+      footer = NULL,
+
 
       easyClose = FALSE,
       backdrop = "static"
@@ -1507,7 +1512,6 @@ server <- function(input, output, session) {
 
     # Effacer les paramètres et le bouton d'extraction
     output$extraction_button <- renderUI({})
-    output$extraction_button_final <- renderUI({})
 
     simulation_ui()
 
@@ -2520,21 +2524,25 @@ server <- function(input, output, session) {
                   tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Scénario cmip6 : ", SSP_value))
                 }
               )
+            ),
+
+            # Bouton suivant pour passer au résultat
+            div(class = "mt-3",
+              actionButton(
+                "close_simulation",
+                "Suivant",
+                class = "btn btn-primary",
+                style = "width: 100%; display: block;"
+              )
             )
           ),
 
-          footer = actionButton(
-            "close_simulation",
-            "Suivant",
-            class = "btn btn-primary"
-          ),
+        footer = NULL,
 
           easyClose = FALSE,
           backdrop = "static"
         )
       )
-      print("test")
-
     }
   })
 
