@@ -2533,11 +2533,9 @@ server <- function(input, output, session) {
         )
       )
       print("test")
-<<<<<<< HEAD
+
       print(paste0("Cœurs disponibles :", parallelly::availableCores(), "\n"))
-=======
-      print("Cœurs disponibles :", parallelly::availableCores(), "\n")
->>>>>>> aafde97a2e7500f04da1df9d5140ecf0d48ef6c7
+
       print("test2")
 
     }
