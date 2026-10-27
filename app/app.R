@@ -2533,6 +2533,8 @@ server <- function(input, output, session) {
         )
       )
       print("test")
+      print(paste0("Cœurs disponibles :", parallelly::availableCores(), "\n"))
+      print("test2")
 
     }
   })
