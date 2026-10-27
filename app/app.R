@@ -2533,11 +2533,6 @@ server <- function(input, output, session) {
         )
       )
       print("test")
-      print(paste0("Workers : ", future::nbrOfWorkers(), " \n"))
-      print(paste0("Cœurs disponibles : ", parallelly::availableCores(), " \n"))
-      print(paste0("PID : ", Sys.getpid(),  "\n"))
-      print("test2")
-
 
     }
   })
