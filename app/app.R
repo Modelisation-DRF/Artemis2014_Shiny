@@ -1185,7 +1185,6 @@ server <- function(input, output, session) {
       # Ne pas utiliser de données climatiques
       # Effacer le bouton d'extraction
       output$extraction_button <- renderUI({})
-      output$extraction_button_final <- renderUI({})
 
       # Définir les variables climatiques comme NULL pour indiquer qu'elles ne sont pas utilisées
       rv$climat_tot <- NULL
