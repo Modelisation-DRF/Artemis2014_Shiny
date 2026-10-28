@@ -627,7 +627,7 @@ server <- function(input, output, session) {
                                 "Placette" = "placette",
                                 "À l'échelle du billon" = "echelle_billon"
                               ),
-                              selected = ""
+                              selected = "arbre"
                             )
                         ),
                         # Conditional panel si "À l'échelle du billon"
