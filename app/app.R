@@ -36,12 +36,144 @@ version_artemis <- as.character(packageVersion("Artemis2014"))
 desc <- packageDescription("Artemis2014")
 annee <- format(as.Date(substr(desc$Packaged, 1, 10)), "%Y")
 
+# Version anti-cache pour forcer le rechargement du CSS à chaque démarrage.
+# Évite que le navigateur serve une ancienne version mise en cache.
+css_version <- as.integer(Sys.time())
+
+# ------------------------------------------------------------------
+# Icônes : Material Symbols (bibliothèque officielle SDG) au lieu de
+# Font Awesome. On redéfinit icon() pour qu'elle produise un <span>
+# Material Symbols. Une table traduit les anciens noms Font Awesome
+# vers les ligatures Material Symbols ; ainsi tout le code existant
+# (icon("chevron-down"), icon("info-circle"), ...) fonctionne sans
+# modification. Les noms inconnus sont utilisés tels quels.
+# ------------------------------------------------------------------
+icon <- function(name, class = NULL, ...) {
+  correspondance <- c(
+    "up-right-from-square" = "open_in_new",
+    "tree"                 = "park",
+    "cloud-sun-rain"       = "partly_cloudy_day",
+    "chevron-down"         = "expand_more",
+    "sync"                 = "sync",
+    "times-circle"         = "cancel",
+    "check-circle"         = "check_circle",
+    "exclamation-triangle" = "warning",
+    "info-circle"          = "info",
+    "arrow-right"          = "arrow_forward",
+    "check"                = "check",
+    "cloud-download-alt"   = "cloud_download",
+    "circle-xmark"         = "cancel",
+    "play-circle"          = "play_circle",
+    "plus-circle"          = "add_circle",
+    "trash"                = "delete"
+  )
+
+  glyphe <- if (name %in% names(correspondance)) unname(correspondance[name]) else name
+
+  attribs <- list(...)
+  # Ajouter aria-hidden seulement s'il n'est pas déjà fourni (évite un doublon)
+  if (is.null(attribs[["aria-hidden"]])) {
+    attribs[["aria-hidden"]] <- "true"
+  }
+
+  classe_finale <- trimws(paste("material-symbols-rounded", if (is.null(class)) "" else class))
+
+  do.call(
+    tags$span,
+    c(list(glyphe, class = classe_finale), attribs)
+  )
+}
+
 # Interface utilisateur
 ui <- fluidPage(
   theme = bs_theme(version = 5),
   # Importation du .css ministériel
   tags$head(
-    tags$link(rel = "stylesheet", href = "theme-gouvernemental.css"),
+    tags$link(rel = "stylesheet", href = paste0("theme-gouvernemental.css?v=", css_version)),
+
+    # Chargement des polices gouvernementales (Roboto + Open Sans) depuis www/fonts.
+    # Chemin relatif servi par Shiny : portable et fonctionne hors-ligne.
+    tags$style(HTML("
+      /* Roboto (titres) */
+      @font-face {
+        font-family: 'Roboto';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('fonts/roboto-v48-latin-regular.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Roboto';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('fonts/roboto-v48-latin-500.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Roboto';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('fonts/roboto-v48-latin-600.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Roboto';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('fonts/roboto-v48-latin-700.woff2') format('woff2');
+      }
+      /* Open Sans (texte courant) */
+      @font-face {
+        font-family: 'Open Sans';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('fonts/open-sans-v43-latin-regular.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Open Sans';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('fonts/open-sans-v43-latin-600.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Open Sans';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('fonts/open-sans-v43-latin-700.woff2') format('woff2');
+      }
+      /* Material Symbols Rounded (icônes officielles SDG) */
+      @font-face {
+        font-family: 'Material Symbols Rounded';
+        font-style: normal;
+        font-weight: 100 700;
+        font-display: block;
+        src: url('fonts/material-symbols-rounded-full.woff2') format('woff2');
+      }
+      .material-symbols-rounded {
+        font-family: 'Material Symbols Rounded';
+        font-weight: normal;
+        font-style: normal;
+        font-size: 16px;            /* taille standard, grille 8 px */
+        line-height: 1;
+        letter-spacing: normal;
+        text-transform: none;
+        display: inline-block;
+        white-space: nowrap;
+        word-wrap: normal;
+        direction: ltr;
+        vertical-align: -0.125em;
+        -webkit-font-smoothing: antialiased;
+        font-feature-settings: 'liga';
+        font-variation-settings: 'opsz' 40, 'FILL' 0, 'GRAD' 0;
+      }
+      /* Grandes icônes (ex. confirmation de succès) : conserve un rendu visible */
+      .material-symbols-rounded.fa-3x { font-size: 48px; }
+      .material-symbols-rounded.fa-2x { font-size: 32px; }
+    ")),
 
     # Collapse la section
     tags$script(HTML("
@@ -111,25 +243,28 @@ ui <- fluidPage(
   # Header gouvernemental
   tags$header(
     div(
-      class = "container-fluid piv py-2",
+      class = "container-fluid piv py-3",
       role = "banner",
       #style = "font-family: var(--qc-font-family-header);",
 
       div(
-        class = "d-flex align-items-center",
-        tags$a(
-          href = "https://www.quebec.ca/",
-          target = "_blank",
+        class = "app-container",
+        div(
+          class = "d-flex align-items-center",
+          tags$a(
+            href = "https://www.quebec.ca/",
+            target = "_blank",
 
-          tags$img(
-            src = "signature-PIV.svg",
-            height = "50px"
+            tags$img(
+              src = "signature-PIV.svg",
+              height = "50px"
+            )
+          ),
+          p(
+            "Artemis‑2014",
+            class = "fs-3 text-white ms-3 header-title",
+            style = "font-family: var(--qc-font-family-header);"
           )
-        ),
-        p(
-          "Artemis‑2014",
-          class = "fs-3 text-white ms-3 header-title",
-          style = "font-family: var(--qc-font-family-header);"
         )
       )
     )
@@ -137,7 +272,7 @@ ui <- fluidPage(
   # Menu de navigation
     div(
       class = "headline pt-3",
-      div(class = "container-fluid",
+      div(class = "app-container",
 
           div(class = "d-flex align-items-center",
               uiOutput("nav_menu")
@@ -148,14 +283,14 @@ ui <- fluidPage(
 
   # Contenu de la page
   div(
-    class = "container-fluid mt-5",
+    class = "app-container mt-5",
     # Gérer coté server
     uiOutput("main_content")
   ),
 
   # Footer
   div(
-    class = "container-fluid text-center py-3",
+    class = "app-container text-center py-3",
 
     # Info version Artemis- Au dessus de la ligne grise
     div(class = "d-flex justify-content-center gap-3 mb-1",
@@ -180,7 +315,7 @@ ui <- fluidPage(
                   paste0("© Gouvernement du Québec, ", format(Sys.Date(), "%Y")),
                   href = "https://www.quebec.ca/droit-auteur",
                   target = "_blank",
-                  class = "text-muted small"
+                  class = "qc-color-link-text small"
                 )
             )
         )
@@ -276,7 +411,7 @@ server <- function(input, output, session) {
               "border-bottom:4px solid lightgray;" else ""
           )
         ),
-        if (rv$simulation_terminee){
+        #if (rv$simulation_terminee){
         actionLink(
           "tab_resultat", "Résultat",
           class = "text-white px-2 fs-2",
@@ -285,7 +420,7 @@ server <- function(input, output, session) {
             if (current == "resultat")
               "border-bottom:4px solid lightgray;" else ""
           )
-        )}
+        )#}
     )
   })
 
@@ -294,6 +429,7 @@ server <- function(input, output, session) {
     # Page Accueil
     if (current_tab() == "accueil") {
       div(
+        class = "texte-courant",
         div(
           h1("Accueil"),
           p("Bienvenue dans l'application Artemis, un Simulateur de croissance à l'échelle de l'arbre pour les forêts du Québec. Cette application vous permet de réaliser des simulations basées sur vos données d'inventaire forestier.")
@@ -301,12 +437,15 @@ server <- function(input, output, session) {
 
         div(
           class = "mt-4",
-          h3("Documentation", class = "mb-3"),
+          h2("Documentation", class = "mb-3"),
             p("Pour vous aider à utiliser efficacement Artemis veuillez consulter la page Wiki de l'application: ",
             tags$a(
               "Aide application R Artémis",
+              icon("up-right-from-square", class = "ms-1 small", `aria-hidden` = "true"),
+              tags$span("(Ouvre dans un nouvel onglet)", class = "visually-hidden"),
               href = "https://github.com/Modelisation-DRF/Artemis2014_Shiny/wiki",
               target = "_blank",
+              rel = "noopener noreferrer",
               class = "fw-bold"
             )),
 
@@ -318,7 +457,7 @@ server <- function(input, output, session) {
         # Fichiers d'exemple
         tags$div(
           class = "mb-4",
-          tags$h3("Fichiers d'exemple", class = "mb-3"),
+          tags$h2("Fichiers d'exemple", class = "mb-3"),
           tags$p("Pour vous familiariser avec la structure des fichiers d'Artemis, vous pouvez télécharger ces exemples:"),
 
           tags$div(class = "row mt-4",
@@ -357,7 +496,7 @@ server <- function(input, output, session) {
         # Section contact
         div(
           class = "mt-4",
-          h3(
+          h2(
             "Contactez-nous",
             class = "mb-3",
           ),
@@ -375,6 +514,9 @@ server <- function(input, output, session) {
     # Page Données
     }
     else if (current_tab() == "donnees") {
+      div(
+      div(
+        h1("Données")),
 
       div(class = "container-fluid px-0 mt-2",
         div(class = "row g-2",
@@ -482,9 +624,12 @@ server <- function(input, output, session) {
             )
         )
       )
-
+)
     }
     else if (current_tab() == "resultat") {
+      div(
+        div(
+          h1("Résultat")),
 
       div(class = "container-fluid px-0 mt-2",
           div(class = "row g-2",
@@ -755,7 +900,7 @@ server <- function(input, output, session) {
                 )
               )
 
-            ))
+            )))
 
     }
 

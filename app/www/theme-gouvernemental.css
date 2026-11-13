@@ -235,6 +235,19 @@
 .headline {
   /** Menu principal bleu foncé */
 }
+
+.app-container {
+  width: 100%;
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+/* Largeur de lecture maximale pour le texte courant (norme SDG : 825 px, ~110 caractères). */
+.texte-courant p {
+  max-width: 825px;
+}
 @media (max-width: 767.98px) {
   .headline .menu-principal nav.navbar .navbar-nav {
     overflow: auto;
