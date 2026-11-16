@@ -411,16 +411,26 @@ server <- function(input, output, session) {
               "border-bottom:4px solid lightgray;" else ""
           )
         ),
-        #if (rv$simulation_terminee){
-        actionLink(
-          "tab_resultat", "Résultat",
-          class = "text-white px-2 fs-2",
-          style = paste0(
-            "text-decoration:none; padding-bottom:10px;",
-            if (current == "resultat")
-              "border-bottom:4px solid lightgray;" else ""
+        # Onglet Résultat : toujours visible pour garder des repères stables.
+        # Grisé et non cliquable tant qu'aucune simulation n'est faite.
+        if (isTRUE(rv$simulation_terminee)) {
+          actionLink(
+            "tab_resultat", "Résultat",
+            class = "text-white px-2 fs-2",
+            style = paste0(
+              "text-decoration:none; padding-bottom:10px;",
+              if (current == "resultat")
+                "border-bottom:4px solid lightgray;" else ""
+            )
           )
-        )#}
+        } else {
+          tags$span(
+            "Résultat",
+            class = "px-2 fs-2 nav-onglet-desactive",
+            title = "Lancez une simulation dans l'onglet Données pour accéder aux résultats.",
+            `aria-disabled` = "true"
+          )
+        }
     )
   })
 
@@ -527,14 +537,14 @@ server <- function(input, output, session) {
                 # Importations des données
                 div(class = "card mb-3",
                     div(
-                      class = "card-header bg-secondary text-white d-flex justify-content-between align-items-center",
+                      class = "card-header bg-tertiary d-flex justify-content-between align-items-center",
                       span("Importation de données"),
 
                       tags$a(
                         href = "#collapse_import",
                         `data-bs-toggle` = "collapse",
                         role = "button",
-                        icon("chevron-down",class="text-white")
+                        icon("chevron-down",class="text-dark")
                       )
                     ),
 
@@ -567,13 +577,13 @@ server <- function(input, output, session) {
                 # Configuration
                 div(class = "card",
                     div(
-                      class = "card-header bg-secondary text-white d-flex justify-content-between align-items-center",
+                      class = "card-header bg-tertiary d-flex justify-content-between align-items-center",
                       span("Configuration de la simulation"),
                       tags$a(
                         href = "#collapse_config",
                         `data-bs-toggle` = "collapse",
                         role = "button",
-                        icon("chevron-down",class="text-white")
+                        icon("chevron-down",class="text-dark")
                       )
                     ),
 
@@ -590,13 +600,13 @@ server <- function(input, output, session) {
                 # Données importées
                 div(class = "card",
                     div(
-                      class = "card-header bg-secondary text-white d-flex justify-content-between align-items-center",
+                      class = "card-header bg-tertiary d-flex justify-content-between align-items-center",
                       span("Données importées"),
                       tags$a(
                         href = "#collapse_data",
                         `data-bs-toggle` = "collapse",
                         role = "button",
-                        icon("chevron-down",class="text-white")
+                        icon("chevron-down",class="text-dark")
                       )
                     ),
 
@@ -640,14 +650,14 @@ server <- function(input, output, session) {
           # Options de visualisation
           div(class = "card mb-3",
               div(
-                class = "card-header bg-secondary text-white d-flex justify-content-between align-items-center",
+                class = "card-header bg-tertiary d-flex justify-content-between align-items-center",
                 span("Options de visualisation"),
 
                 tags$a(
                   href = "#collapse_opt_vis",
                   `data-bs-toggle` = "collapse",
                   role = "button",
-                  icon("chevron-down",class="text-white")
+                  icon("chevron-down",class="text-dark")
                 )
               ),
 
@@ -729,13 +739,13 @@ server <- function(input, output, session) {
               # Exportation des résultats
               div(class = "card",
                   div(
-                    class = "card-header bg-secondary text-white d-flex justify-content-between align-items-center",
+                    class = "card-header bg-tertiary d-flex justify-content-between align-items-center",
                     span("Exportation des résultats"),
                     tags$a(
                       href = "#collapse_exp_res",
                       `data-bs-toggle` = "collapse",
                       role = "button",
-                      icon("chevron-down",class="text-white")
+                      icon("chevron-down",class="text-dark")
                     )
                   ),
 
@@ -867,13 +877,13 @@ server <- function(input, output, session) {
                   # Visualisation des résultats
                   div(class = "card",
                       div(
-                        class = "card-header bg-secondary text-white d-flex justify-content-between align-items-center",
+                        class = "card-header bg-tertiary d-flex justify-content-between align-items-center",
                         span("Visualisation des résultats"),
                         tags$a(
                           href = "#collapse_resultat",
                           `data-bs-toggle` = "collapse",
                           role = "button",
-                          icon("chevron-down",class="text-white")
+                          icon("chevron-down",class="text-dark")
                         )
                       ),
 
@@ -1069,7 +1079,6 @@ server <- function(input, output, session) {
   output$error_box <- renderUI({
     req(validation_errors())
     errors <- validation_errors()
-    print(length(errors))
     if (length(errors) > 0){
       div( class = "alert alert-danger ",
            tags$strong("Erreurs détectées: "),
@@ -1143,7 +1152,7 @@ server <- function(input, output, session) {
 
           # Section Radio-buttons
           div(
-            class = "card-body small pt-1 pb-0 mt-0",
+            class = "card-body small pt-1 pb-0 mt-0 ps-3 pe-3",
 
             # Cas 1 : âge moyen invalide
             if (!rv$age_moy_valid) {
@@ -1192,15 +1201,17 @@ server <- function(input, output, session) {
 
             # Section du bouton suivant
             div(
-              class = "d-flex justify-content-center mt-1 mb-0",
+              #class = "d-flex justify-content-center mt-1 mb-0",
 
               actionButton(
                 "validate_extraction_choice",
                 "Suivant",
-                class = "btn btn-primary w-100",
+                class = "btn btn-primary w-100 d-flex justify-content-center align-items-center gap-2",
                 icon = icon("arrow-right")
               )
             )
+
+
           )
         )
       })
@@ -1622,11 +1633,15 @@ server <- function(input, output, session) {
       ),
 
       # Bouton suivant
-      footer = actionButton(
-        "close_extraction",
-        "Suivant",
-        class = "btn btn-primary w-100"
-      ),
+      div(class = "mt-3",
+          actionButton(
+            "close_extraction",
+            "Suivant",
+            class = "btn btn-primary",
+            style = "width: 100%; display: block;"
+          )),
+      footer = NULL,
+
 
       easyClose = FALSE,
       backdrop = "static"
@@ -1650,7 +1665,6 @@ server <- function(input, output, session) {
 
     # Effacer les paramètres et le bouton d'extraction
     output$extraction_button <- renderUI({})
-    output$extraction_button_final <- renderUI({})
 
     simulation_ui()
 
@@ -2663,21 +2677,25 @@ server <- function(input, output, session) {
                   tags$li(style = "margin-bottom: 1px; padding: 0;",paste0("Scénario cmip6 : ", SSP_value))
                 }
               )
+            ),
+
+            # Bouton suivant pour passer au résultat
+            div(class = "mt-3",
+              actionButton(
+                "close_simulation",
+                "Suivant",
+                class = "btn btn-primary",
+                style = "width: 100%; display: block;"
+              )
             )
           ),
 
-          footer = actionButton(
-            "close_simulation",
-            "Suivant",
-            class = "btn btn-primary"
-          ),
+        footer = NULL,
 
           easyClose = FALSE,
           backdrop = "static"
         )
       )
-      print("test")
-
     }
   })
 

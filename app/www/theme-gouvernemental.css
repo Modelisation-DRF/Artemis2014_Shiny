@@ -228,12 +228,12 @@
 */
 .headline {
   background-color: #223654;
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
 }
 .headline > .container > .row {
   min-height: 72px;
-}
-.headline {
-  /** Menu principal bleu foncé */
 }
 
 .app-container {
@@ -247,6 +247,23 @@
 /* Largeur de lecture maximale pour le texte courant (norme SDG : 825 px, ~110 caractères). */
 .texte-courant p {
   max-width: 825px;
+}
+/* Onglet de navigation désactivé */
+.nav-onglet-desactive {
+  color: rgba(255, 255, 255, 0.45);
+  cursor: not-allowed;
+  text-decoration: none;
+  padding-bottom: 10px;
+}
+.bg-tertiary {
+  background-color: #DAE6F0 !important;
+  color: #095797 !important;
+  font-weight: 700 !important;
+}
+/* La petite flèche (chevron) prend le même bleu PIV que le texte. */
+.bg-tertiary .material-symbols-rounded,
+.bg-tertiary a {
+  color: #095797 !important;
 }
 @media (max-width: 767.98px) {
   .headline .menu-principal nav.navbar .navbar-nav {
@@ -1937,6 +1954,9 @@ footer .footer__piv #footer__logo {
 header {
   background-color: #095797;
   font-family: "Roboto";
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
 }
 header p {
   font-family: "Roboto";
