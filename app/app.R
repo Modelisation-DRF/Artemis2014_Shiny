@@ -84,16 +84,140 @@ icon <- function(name, class = NULL, ...) {
   )
 }
 
+# ------------------------------------------------------------------
+# Pont de classes Bootstrap -> SDG (côté R)
+# Permet une migration progressive sans réécrire immédiatement tous
+# les appels UI existants.
+# ------------------------------------------------------------------
+sdg_bridge_classes <- function(class) {
+  if (is.null(class) || !nzchar(trimws(class))) return(class)
+
+  tokens <- unlist(strsplit(class, "\\s+"))
+  mapping <- c(
+    "btn" = "qc-button",
+    "btn-primary" = "qc-primary",
+    "btn-secondary" = "qc-secondary",
+    "btn-danger" = "qc-danger",
+    "btn-tertiary" = "qc-tertiary",
+    "card" = "sdg-card",
+    "card-header" = "sdg-card-header",
+    "card-body" = "sdg-card-body",
+    "bg-tertiary" = "sdg-card-header-muted",
+    "rounded-pill" = "qc-button-rounded",
+    "rounded-circle" = "qc-button-rounded"
+  )
+
+  mapped <- unname(mapping[tokens])
+  mapped <- mapped[!is.na(mapped)]
+
+  # Colonnes Bootstrap -> colonnes SDG
+  col_tokens <- grep("^col(-|$)", tokens, value = TRUE)
+  col_mapped <- paste0("qc-", col_tokens)
+
+  out <- unique(c(tokens, mapped, col_mapped))
+  paste(out, collapse = " ")
+}
+
+# Wrappers Shiny : appliquent automatiquement les classes SDG aux boutons.
+actionButton <- function(inputId, label, icon = NULL, width = NULL, ..., class = NULL) {
+  shiny::actionButton(
+    inputId = inputId,
+    label = label,
+    icon = icon,
+    width = width,
+    ...,
+    class = sdg_bridge_classes(class)
+  )
+}
+
+downloadButton <- function(outputId, label = "Download", class = NULL, ...) {
+  shiny::downloadButton(
+    outputId = outputId,
+    label = label,
+    class = sdg_bridge_classes(class),
+    ...
+  )
+}
+
 # Interface utilisateur
 ui <- fluidPage(
   theme = bs_theme(version = 5),
   # Importation du .css ministériel
   tags$head(
     tags$link(rel = "stylesheet", href = paste0("theme-gouvernemental.css?v=", css_version)),
+    # Trousse SDG (sans grille) pour migration progressive depuis Bootstrap.
+    # On conserve Bootstrap temporairement pour éviter de briser les composants Shiny,
+    # puis on remappe les classes vers SDG via le script plus bas.
+    tags$link(rel = "stylesheet", href = "dist/css/qc-sdg-no-grid.min.css"),
+    tags$script(src = "dist/js/qc-sdg.min.js", defer = NA),
+
+    # Pont de migration Bootstrap -> SDG (appliqué au DOM initial + contenu dynamique Shiny)
+    tags$script(HTML("(function () {
+      function convertNode(root) {
+        if (!root || !root.querySelectorAll) return;
+
+        var mapping = {
+          'container': 'qc-container',
+          'container-fluid': 'qc-container-fluid',
+          'row': 'qc-row',
+          'btn': 'qc-button',
+          'btn-primary': 'qc-primary',
+          'btn-secondary': 'qc-secondary',
+          'btn-danger': 'qc-danger',
+          'btn-tertiary': 'qc-tertiary',
+          'card': 'sdg-card',
+          'card-header': 'sdg-card-header',
+          'card-body': 'sdg-card-body',
+          'bg-tertiary': 'sdg-card-header-muted',
+          'rounded-pill': 'qc-button-rounded',
+          'rounded-circle': 'qc-button-rounded'
+        };
+
+        function mapClassList(el) {
+          if (!el.classList) return;
+
+          Object.keys(mapping).forEach(function (from) {
+            if (el.classList.contains(from)) {
+              el.classList.add(mapping[from]);
+            }
+          });
+
+          // Colonnes Bootstrap -> colonnes SDG (col-*, col-sm-*, col-md-* ...)
+          Array.from(el.classList).forEach(function (c) {
+            if (/^col(-|$)/.test(c)) {
+              el.classList.add('qc-' + c);
+            }
+          });
+        }
+
+        mapClassList(root);
+        root.querySelectorAll('*').forEach(mapClassList);
+      }
+
+      function bootBridge() {
+        convertNode(document.body);
+
+        var observer = new MutationObserver(function (mutations) {
+          mutations.forEach(function (m) {
+            m.addedNodes.forEach(function (node) {
+              if (node.nodeType === 1) convertNode(node);
+            });
+          });
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootBridge);
+      } else {
+        bootBridge();
+      }
+    })();")),
 
     # Chargement des polices gouvernementales (Roboto + Open Sans) depuis www/fonts.
     # Chemin relatif servi par Shiny : portable et fonctionne hors-ligne.
-    tags$style(HTML("
+    tags$style(HTML("\
       /* Roboto (titres) */
       @font-face {
         font-family: 'Roboto';
@@ -157,7 +281,7 @@ ui <- fluidPage(
         font-family: 'Material Symbols Rounded';
         font-weight: normal;
         font-style: normal;
-        font-size: 16px;            /* taille standard, grille 8 px */
+        font-size: 16px;
         line-height: 1;
         letter-spacing: normal;
         text-transform: none;
@@ -170,23 +294,108 @@ ui <- fluidPage(
         font-feature-settings: 'liga';
         font-variation-settings: 'opsz' 40, 'FILL' 0, 'GRAD' 0;
       }
-      /* Grandes icônes (ex. confirmation de succès) : conserve un rendu visible */
       .material-symbols-rounded.fa-3x { font-size: 48px; }
       .material-symbols-rounded.fa-2x { font-size: 32px; }
     ")),
 
-    # Collapse la section
-    tags$script(HTML("
-    Shiny.addCustomMessageHandler('collapse_import_close', function(message) {
-      var collapseElement = document.getElementById('collapse_import');
-      var bsCollapse = new bootstrap.Collapse(collapseElement, {
-        toggle: false }); bsCollapse.hide();});")),
+    # Habillage SDG des conteneurs Bootstrap encore présents (migration progressive)
+    tags$style(HTML("\
+  .sdg-card {
+        border: 1px solid var(--qc-color-grey-light);
+        background-color: var(--qc-color-white);
+        box-shadow: 0 var(--qc-box_shadow-1-offset) var(--qc-box_shadow-1-blur) var(--qc-color-box_shadow);
+        border-radius: 0;
+      }
+  .sdg-card-header {
+        font-size: var(--qc-font-size-md);
+        line-height: var(--qc-line-height-md);
+        font-weight: var(--qc-font-weight-bold);
+        color: var(--qc-color-text-primary);
+        background-color: var(--qc-color-blue-pale);
+        border-bottom: 1px solid var(--qc-color-grey-light);
+        padding: var(--qc-spacer-sm);
+      }
+      .sdg-card-header-muted {
+        background-color: var(--qc-color-blue-pale) !important;
+      }
+  .sdg-card-body {
+        padding: var(--qc-spacer-sm);
+      }
+      .sdg-card-header [data-sdg-toggle='collapse'] {
+        color: var(--qc-color-blue-piv);
+        text-decoration: none;
+      }
+      .sdg-card-header [data-sdg-toggle='collapse']:hover {
+        color: var(--qc-color-blue-regular);
+      }
+    ")),
 
-    tags$script(HTML("
-    Shiny.addCustomMessageHandler('collapse_import_open', function(message) {
-      var collapseElement = document.getElementById('collapse_import');
-      var bsCollapse = new bootstrap.Collapse(collapseElement, {
-        toggle: false }); bsCollapse.show();});")),
+    # Collapse des sections (sans dépendance JS Bootstrap)
+    tags$script(HTML(paste(
+      "(function(){",
+      "  function getTargetElement(trigger) {",
+      "    if (!trigger) return null;",
+      "    var selector = trigger.getAttribute('data-sdg-target') || trigger.getAttribute('href');",
+      "    if (!selector || selector.charAt(0) !== '#') return null;",
+      "    return document.querySelector(selector);",
+      "  }",
+      "",
+      "  function syncTriggersForPanel(panel, isOpen) {",
+      "    if (!panel || !panel.id) return;",
+      "    var selectors = [",
+      "      '[data-sdg-toggle=\"collapse\"][href=\"#' + panel.id + '\"]',",
+      "      '[data-sdg-toggle=\"collapse\"][data-sdg-target=\"#' + panel.id + '\"]'",
+      "    ];",
+      "",
+      "    document.querySelectorAll(selectors.join(',')).forEach(function(trigger) {",
+      "      trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');",
+      "    });",
+      "  }",
+      "",
+      "  function applyCollapseState(panel, open) {",
+      "    if (!panel) return;",
+      "    panel.classList.toggle('show', !!open);",
+      "    panel.setAttribute('aria-hidden', open ? 'false' : 'true');",
+      "    syncTriggersForPanel(panel, !!open);",
+      "  }",
+      "",
+      "  function setCollapseState(id, open) {",
+      "    applyCollapseState(document.getElementById(id), open);",
+      "  }",
+      "",
+      "  document.addEventListener('click', function(e) {",
+      "    var trigger = e.target.closest('[data-sdg-toggle=\"collapse\"]');",
+      "    if (!trigger) return;",
+      "",
+      "    var panel = getTargetElement(trigger);",
+      "    if (!panel) return;",
+      "",
+      "    e.preventDefault();",
+      "    applyCollapseState(panel, !panel.classList.contains('show'));",
+      "  });",
+      "",
+      "  function initCollapseA11y() {",
+      "    document.querySelectorAll('.collapse[id]').forEach(function(panel) {",
+      "      applyCollapseState(panel, panel.classList.contains('show'));",
+      "    });",
+      "  }",
+      "",
+      "  if (document.readyState === 'loading') {",
+      "    document.addEventListener('DOMContentLoaded', initCollapseA11y);",
+      "  } else {",
+      "    initCollapseA11y();",
+      "  }",
+      "",
+      "  Shiny.addCustomMessageHandler('collapse_import_close', function() {",
+      "    setCollapseState('collapse_import', false);",
+      "  });",
+      "",
+      "  Shiny.addCustomMessageHandler('collapse_import_open', function() {",
+      "    setCollapseState('collapse_import', true);",
+      "  });",
+      "})();",
+      sep = "\n"
+    ))),
 
     # Ouverture/fermture section tbe
     tags$script(HTML("
@@ -228,9 +437,364 @@ ui <- fluidPage(
     .bootstrap-select .bs-actionsbox .btn {
     display: flex;justify-content: center;align-items: center; }")),
 
-    tags$style(HTML("
-    .bootstrap-select {
-    width: 100%; }"))
+  tags$style(HTML("
+  .bootstrap-select {
+  width: 100%; }")),
+
+    # Shim utilitaires Bootstrap -> rendu SDG (migration progressive)
+    tags$style(HTML("\
+  .text-start { text-align: left !important; }
+  .text-end { text-align: right !important; }
+    .text-center { text-align: center !important; }
+    .text-white { color: var(--qc-color-white) !important; }
+    .text-dark { color: var(--qc-color-text-primary) !important; }
+  .text-body { color: var(--qc-color-text-primary) !important; }
+    .text-primary { color: var(--qc-color-blue-piv) !important; }
+  .text-warning { color: var(--qc-color-orange-regular) !important; }
+  .text-danger { color: var(--qc-color-red-regular) !important; }
+    .text-muted { color: var(--qc-color-grey-medium) !important; }
+    .small { font-size: var(--qc-font-size-sm) !important; line-height: var(--qc-line-height-sm) !important; }
+
+    .fw-bold { font-weight: var(--qc-font-weight-bold) !important; }
+  .fw-semibold { font-weight: var(--qc-font-weight-bold) !important; }
+    .fst-italic { font-style: italic !important; }
+
+    .fs-2 { font-size: var(--qc-font-size-lg) !important; line-height: var(--qc-line-height-lg) !important; }
+    .fs-3 { font-size: var(--qc-font-size-xl) !important; line-height: var(--qc-line-height-xl) !important; }
+    .fs-5 { font-size: var(--qc-font-size-md) !important; line-height: var(--qc-line-height-md) !important; }
+
+    .d-flex { display: flex !important; }
+    .align-items-center { align-items: center !important; }
+    .justify-content-center { justify-content: center !important; }
+    .justify-content-between { justify-content: space-between !important; }
+    .justify-content-end { justify-content: flex-end !important; }
+    .gap-2 { gap: var(--qc-spacer-sm) !important; }
+    .gap-3 { gap: var(--qc-spacer-md) !important; }
+
+    .w-100 { width: 100% !important; }
+    .h-100 { height: 100% !important; }
+    .overflow-auto { overflow: auto !important; }
+  .position-relative { position: relative !important; }
+
+    .mt-0 { margin-top: 0 !important; }
+    .mt-1 { margin-top: calc(var(--qc-spacer-xs) / 2) !important; }
+    .mt-2 { margin-top: var(--qc-spacer-sm) !important; }
+    .mt-3 { margin-top: var(--qc-spacer-md) !important; }
+    .mt-4 { margin-top: var(--qc-spacer-lg) !important; }
+    .mt-5 { margin-top: var(--qc-spacer-xl) !important; }
+
+    .mb-0 { margin-bottom: 0 !important; }
+    .mb-1 { margin-bottom: calc(var(--qc-spacer-xs) / 2) !important; }
+    .mb-2 { margin-bottom: var(--qc-spacer-sm) !important; }
+    .mb-3 { margin-bottom: var(--qc-spacer-md) !important; }
+    .mb-4 { margin-bottom: var(--qc-spacer-lg) !important; }
+
+    .ms-1 { margin-left: calc(var(--qc-spacer-xs) / 2) !important; }
+    .ms-2 { margin-left: var(--qc-spacer-sm) !important; }
+    .ms-3 { margin-left: var(--qc-spacer-md) !important; }
+    .me-2 { margin-right: var(--qc-spacer-sm) !important; }
+
+  .p-1 { padding: calc(var(--qc-spacer-xs) / 2) !important; }
+  .p-2 { padding: var(--qc-spacer-sm) !important; }
+  .p-4 { padding: var(--qc-spacer-lg) !important; }
+  .ps-3 { padding-left: var(--qc-spacer-md) !important; }
+  .pe-2 { padding-right: var(--qc-spacer-sm) !important; }
+  .pe-3 { padding-right: var(--qc-spacer-md) !important; }
+    .pt-2 { padding-top: var(--qc-spacer-sm) !important; }
+    .pt-3 { padding-top: var(--qc-spacer-md) !important; }
+    .pb-0 { padding-bottom: 0 !important; }
+    .py-0 { padding-top: 0 !important; padding-bottom: 0 !important; }
+    .py-3 { padding-top: var(--qc-spacer-md) !important; padding-bottom: var(--qc-spacer-md) !important; }
+    .px-0 { padding-left: 0 !important; padding-right: 0 !important; }
+  .px-2 { padding-left: var(--qc-spacer-sm) !important; padding-right: var(--qc-spacer-sm) !important; }
+  .px-3 { padding-left: var(--qc-spacer-md) !important; padding-right: var(--qc-spacer-md) !important; }
+    .px-4 { padding-left: var(--qc-spacer-lg) !important; padding-right: var(--qc-spacer-lg) !important; }
+
+  .border { border: 1px solid var(--qc-color-grey-light) !important; }
+    .border-top { border-top: 1px solid var(--qc-color-grey-light) !important; }
+    .border-bottom { border-bottom: 1px solid var(--qc-color-grey-light) !important; }
+    .border-start { border-left: 1px solid var(--qc-color-grey-light) !important; }
+    .border-4 { border-width: 4px !important; }
+    .border-primary { border-color: var(--qc-color-blue-piv) !important; }
+
+    .bg-light { background-color: var(--qc-color-grey-pale) !important; }
+    .rounded { border-radius: 0 !important; }
+
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+
+    .sdg-two-cols {
+      display: flex;
+      gap: var(--qc-spacer-md);
+      align-items: stretch;
+      flex-wrap: wrap;
+      width: 100%;
+      max-inline-size: var(--qc-max-content-width);
+    }
+
+    .sdg-two-cols > .sdg-two-col {
+      flex: 1 1 calc((100% - var(--qc-spacer-md)) / 2);
+      max-width: calc((100% - var(--qc-spacer-md)) / 2);
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    /* Mise en page 1/3 - 2/3 pour l'onglet Données (sans dépendre de la grille SDG) */
+    .sdg-data-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr);
+      gap: var(--qc-spacer-sm);
+      align-items: flex-start;
+      width: 100%;
+    }
+
+    .sdg-data-layout-left {
+      box-sizing: border-box;
+    }
+
+    .sdg-data-layout-right {
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    /* FileInput SDG (import principal) : bouton Parcourir seulement,
+       nom du fichier + Supprimer restent affichés en dessous */
+    .sdg-fileinput .input-group > input.form-control,
+    .sdg-fileinput .input-group > input[type='text'] {
+      display: none !important;
+    }
+
+    .sdg-fileinput .input-group {
+      width: auto;
+      display: inline-flex;
+    }
+
+     /* Le conteneur a une classe p-2: on neutralise surtout le bas */
+    .sdg-fileinput {
+      padding-bottom: 0 !important;
+      margin-bottom: 0 !important;
+    }
+
+
+    /* Réduire l'espace sous le contrôle fileInput */
+    .sdg-fileinput .form-group,
+    .sdg-fileinput .shiny-input-container {
+      margin-bottom: 0 !important;
+    }
+
+    /* Espace vertical entre le libellé et le bouton*/
+    .sdg-fileinput .control-label {
+      margin-bottom: var(--qc-spacer-xs) !important;
+      display: block;
+    }
+
+    /* Masquer la barre (incluant la barre grise),
+       tout en conservant la liste du fichier + lien Supprimer */
+    .sdg-fileinput .shiny-file-input-progress.progress,
+    .sdg-fileinput .shiny-file-input-progress .progress,
+    .sdg-fileinput .shiny-file-input-progress .progress-bar,
+    .sdg-fileinput .shiny-file-input-progress .bar {
+      display: none !important;
+      height: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      box-shadow: none !important;
+      background: transparent !important;
+    }
+
+    .sdg-fileinput .shiny-file-input-progress .progress-text {
+      display: none !important;
+    }
+
+    /* Rapprocher la ligne du bouton */
+    .sdg-fileinput .shiny-file-input-progress {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
+
+    /* Ligne du nom de fichier sous le bouton Parcourir */
+    .sdg-file-name-row {
+      padding: 0 0 12px 0 !important;
+      margin: 4px var(--qc-spacer-sm) 2px var(--qc-spacer-sm) !important;
+      border-bottom: 1px solid var(--qc-color-grey-light);
+      line-height: 1.05;
+    }
+
+    .sdg-file-name-row > div {
+      margin: 0 !important;
+      line-height: 1.1;
+    }
+
+    .sdg-fileinput .input-group-btn .btn,
+    .sdg-fileinput .input-group .btn,
+    .sdg-fileinput .btn-file {
+      border-radius: 0 !important;
+      border: 1px solid var(--qc-color-blue-piv) !important;
+      background-color: var(--qc-color-white) !important;
+      color: var(--qc-color-blue-piv) !important;
+      font-size: var(--qc-font-size-sm);
+      line-height: var(--qc-line-height-sm);
+      padding: 6px 12px !important;
+      min-height: 32px;
+      display: inline-flex;
+      align-items: center;
+      box-shadow: none !important;
+    }
+
+    .sdg-fileinput .input-group-btn .btn:hover,
+    .sdg-fileinput .input-group .btn:hover,
+    .sdg-fileinput .btn-file:hover {
+      background-color: var(--qc-color-blue-pale) !important;
+      color: var(--qc-color-blue-regular) !important;
+    }
+
+    /* Blocs de validation (base + variantes) */
+    .sdg-validation {
+      position: relative;
+      margin: var(--qc-spacer-sm);
+      padding: var(--qc-spacer-sm) var(--qc-spacer-sm) var(--qc-spacer-sm) calc(var(--qc-spacer-sm) + 52px);
+      border: 1px solid var(--qc-color-grey-light);
+      background-color: var(--qc-color-white);
+      display: flex;
+      align-items: flex-start;
+      gap: var(--qc-spacer-sm);
+      overflow: hidden;
+    }
+
+    .sdg-validation > * {
+      position: relative;
+      z-index: 2;
+    }
+
+    .sdg-validation::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 48px;
+      z-index: 0;
+    }
+
+    .sdg-validation-success::before {
+      background-color: var(--qc-color-green-pale);
+    }
+
+    .sdg-validation-success::after {
+      content: 'check_circle';
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: 'Material Symbols Rounded';
+      font-size: 24px;
+      line-height: 1;
+      color: var(--qc-color-green-dark);
+      font-variation-settings: 'opsz' 40, 'FILL' 0, 'GRAD' 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .sdg-validation-info::before {
+      background-color: var(--qc-color-blue-pale);
+    }
+
+    .sdg-validation-info::after {
+      content: 'info';
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: 'Material Symbols Rounded';
+      font-size: 24px;
+      line-height: 1;
+      color: var(--qc-color-blue-piv);
+      font-variation-settings: 'opsz' 40, 'FILL' 0, 'GRAD' 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .sdg-validation-error::before {
+      background-color: var(--qc-color-red-pale);
+    }
+
+    .sdg-validation-error::after {
+      content: 'cancel';
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: 'Material Symbols Rounded';
+      font-size: 24px;
+      line-height: 1;
+      color: var(--qc-color-red-regular);
+      font-variation-settings: 'opsz' 40, 'FILL' 0, 'GRAD' 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .sdg-list-tight,
+    .sdg-list-tight.small {
+      margin-top: 2px !important;
+      margin-bottom: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      line-height: 1.05 !important;
+    }
+
+    .sdg-list-tight li {
+      margin: 0 !important;
+      padding: 0 !important;
+      line-height: 1.3 !important;
+    }
+
+    /* Radio options normales (ni primary ni bold) */
+    .sdg-radio-normal .shiny-options-group label,
+    .sdg-radio-normal .form-check-label,
+    .sdg-radio-normal .radio label {
+      color: var(--qc-color-text-primary) !important;
+      font-weight: var(--qc-font-weight-regular) !important;
+      font-size: var(--qc-font-size-sm) !important;
+      line-height: var(--qc-line-height-sm) !important;
+    }
+
+    .sdg-radio-normal .shiny-options-group .radio {
+      margin-top: 0 !important;
+      margin-bottom: 2px !important;
+    }
+
+    @media (max-width: 768px) {
+      .sdg-two-cols {
+        flex-direction: column;
+      }
+
+      .sdg-two-cols > .sdg-two-col {
+        flex: 1 1 100%;
+        max-width: 100%;
+      }
+
+      .sdg-data-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sdg-data-layout-left,
+      .sdg-data-layout-right {
+        min-width: 0;
+      }
+    }
+    ")),
 
   ),
 
@@ -243,7 +807,7 @@ ui <- fluidPage(
   # Header gouvernemental
   tags$header(
     div(
-      class = "container-fluid piv py-3",
+  class = "qc-container-fluid piv py-3",
       role = "banner",
       #style = "font-family: var(--qc-font-family-header);",
 
@@ -293,13 +857,13 @@ ui <- fluidPage(
     class = "app-container text-center py-3",
 
     # Info version Artemis- Au dessus de la ligne grise
-    div(class = "d-flex justify-content-center gap-3 mb-1",
+    div(class = "border-top pt-2 d-flex justify-content-center gap-3 mb-1",
         p(paste("Artemis ©", annee), class = "text-muted small mb-0"),
         p(paste("Version", version_artemis), class = "text-muted small mb-0")
     ),
 
     # Ligne grise + reste du footer
-    div(class = "border-top pt-2",
+    div(class = "pt-2",
 
         div(class = "mt-0",
             tags$a(
@@ -470,34 +1034,34 @@ server <- function(input, output, session) {
           tags$h2("Fichiers d'exemple", class = "mb-3"),
           tags$p("Pour vous familiariser avec la structure des fichiers d'Artemis, vous pouvez télécharger ces exemples:"),
 
-          tags$div(class = "row mt-4",
+          tags$div(class = "sdg-two-cols mt-4",
 
             # Données arbres
             tags$div(
-              class = "col-md-6",
+              class = "sdg-two-col",
               tags$div(
-                class = "bg-light p-4 rounded h-100 border-start border-primary border-4",
-                tags$div(class = "text-center mb-3", icon("tree",class = "text-primary")),
-                tags$h4("Données des arbres", class = "text-center mb-3"),
-                tags$p("Exemple de fichier CSV avec les données des arbres nécessaires pour la simulation.", class = "text-center"),
+                class = "p-4 qc-shading-1",
+                tags$div(class = "mb-3", icon("tree",class = "text-primary")),
+                tags$h4("Données des arbres", class = "mb-3"),
+                tags$p("Exemple de fichier CSV avec les données des arbres nécessaires pour la simulation.", class = ""),
                 tags$div(
-                  class = "text-center mt-3",
-                  downloadButton("download_arbres", "Télécharger", class = "btn btn-primary")
+                  class = " mt-3",
+                  downloadButton("download_arbres", "Télécharger", class = "qc-button qc-secondary")
                 )
               )
             ),
 
             # Données climatiques
             tags$div(
-              class = "col-md-6",
+              class = "sdg-two-col",
               tags$div(
-                class = "bg-light p-4 rounded h-100 border-start border-primary border-4",
-                tags$div(class = "text-center mb-3", icon("cloud-sun-rain", class = "text-primary")),
-                tags$h4("Données climatiques", class = "text-center mb-3"),
-                tags$p("Exemples de fichiers CSV contenant les données climatiques pour les simulations.", class = "text-center"),
+                class = "p-4 rounded h-100 qc-shading-1",
+                tags$div(class = " mb-3", icon("cloud-sun-rain", class = "text-primary")),
+                tags$h4("Données climatiques", class = " mb-3"),
+                tags$p("Exemples de fichiers CSV contenant les données climatiques pour les simulations.", class = ""),
                 tags$div(
-                  class = "text-center mt-3",
-                  downloadButton("download_climat", "Télécharger", class = "btn btn-primary")
+                  class = " mt-3",
+                  downloadButton("download_climat", "Télécharger", class = "qc-button qc-secondary")
                 )
               )
             )
@@ -528,21 +1092,21 @@ server <- function(input, output, session) {
       div(
         h1("Données")),
 
-      div(class = "container-fluid px-0 mt-2",
-        div(class = "row g-2",
+      div(class = "qc-container-fluid px-0 mt-2",
+        div(class = "sdg-data-layout",
 
             # Colonne de gauche (1/3)
-            div(class = "col-md-4",
+            div(class = "sdg-data-layout-left",
 
                 # Importations des données
-                div(class = "card mb-3",
+                div(class = "sdg-card mb-3",
                     div(
-                      class = "card-header bg-tertiary d-flex justify-content-between align-items-center",
+                      class = "sdg-card-header sdg-card-header-muted bg-tertiary d-flex justify-content-between align-items-center",
                       span("Importation de données"),
 
                       tags$a(
                         href = "#collapse_import",
-                        `data-bs-toggle` = "collapse",
+                        `data-sdg-toggle` = "collapse",
                         role = "button",
                         icon("chevron-down",class="text-dark")
                       )
@@ -553,13 +1117,13 @@ server <- function(input, output, session) {
                       class = "collapse show",
 
                       div(
-                        class = "p-2",
+                        class = "p-2 sdg-fileinput",
 
                         fileInput(
                           "file",
                           "Choisir un fichier CSV",
                           buttonLabel = "Parcourir",
-                          placeholder = "Aucun fichier sélectionné"
+                          placeholder = ""
                         )
                       )
                      ,
@@ -575,13 +1139,13 @@ server <- function(input, output, session) {
                 ),
 
                 # Configuration
-                div(class = "card",
+                div(class = "sdg-card",
                     div(
-                      class = "card-header bg-tertiary d-flex justify-content-between align-items-center",
+                      class = "sdg-card-header sdg-card-header-muted bg-tertiary d-flex justify-content-between align-items-center",
                       span("Configuration de la simulation"),
                       tags$a(
                         href = "#collapse_config",
-                        `data-bs-toggle` = "collapse",
+                        `data-sdg-toggle` = "collapse",
                         role = "button",
                         icon("chevron-down",class="text-dark")
                       )
@@ -596,15 +1160,15 @@ server <- function(input, output, session) {
             ),
 
             # colonne de droite (2/3)
-            div(class = "col-md-8",
+            div(class = "sdg-data-layout-right",
                 # Données importées
-                div(class = "card",
+                div(class = "sdg-card",
                     div(
-                      class = "card-header bg-tertiary d-flex justify-content-between align-items-center",
+                      class = "sdg-card-header sdg-card-header-muted bg-tertiary d-flex justify-content-between align-items-center",
                       span("Données importées"),
                       tags$a(
                         href = "#collapse_data",
-                        `data-bs-toggle` = "collapse",
+                        `data-sdg-toggle` = "collapse",
                         role = "button",
                         icon("chevron-down",class="text-dark")
                       )
@@ -614,12 +1178,12 @@ server <- function(input, output, session) {
                       id = "collapse_data",
                       class = "collapse show",
 
-                      div(class = "card-body py-0 fs-5",
+                      div(class = "sdg-card-body py-0 fs-5",
                           DTOutput("contents")
                       )
                     )
                 )
-            ),
+            )),
 
             # Bouton de réinitialisation
             div(
@@ -628,11 +1192,11 @@ server <- function(input, output, session) {
               actionButton(
                 "reset_button",
                 "Réinitialiser",
-                class = "btn btn-danger",
+                class = "qc-button qc-danger",
                 icon = icon("sync")
               )
             )
-        )
+        #)
       )
 )
     }
@@ -641,21 +1205,21 @@ server <- function(input, output, session) {
         div(
           h1("Résultat")),
 
-      div(class = "container-fluid px-0 mt-2",
-          div(class = "row g-2",
+    div(class = "qc-container-fluid px-0 mt-2",
+      div(class = "qc-row g-2",
 
       # Colonne de gauche (1/3)
-      div(class = "col-md-4",
+  div(class = "qc-col-md-4",
 
           # Options de visualisation
-          div(class = "card mb-3",
+          div(class = "sdg-card mb-3",
               div(
-                class = "card-header bg-tertiary d-flex justify-content-between align-items-center",
+                class = "sdg-card-header sdg-card-header-muted bg-tertiary d-flex justify-content-between align-items-center",
                 span("Options de visualisation"),
 
                 tags$a(
                   href = "#collapse_opt_vis",
-                  `data-bs-toggle` = "collapse",
+                  `data-sdg-toggle` = "collapse",
                   role = "button",
                   icon("chevron-down",class="text-dark")
                 )
@@ -737,13 +1301,13 @@ server <- function(input, output, session) {
 
 
               # Exportation des résultats
-              div(class = "card",
+              div(class = "sdg-card",
                   div(
-                    class = "card-header bg-tertiary d-flex justify-content-between align-items-center",
+                    class = "sdg-card-header sdg-card-header-muted bg-tertiary d-flex justify-content-between align-items-center",
                     span("Exportation des résultats"),
                     tags$a(
                       href = "#collapse_exp_res",
-                      `data-bs-toggle` = "collapse",
+                      `data-sdg-toggle` = "collapse",
                       role = "button",
                       icon("chevron-down",class="text-dark")
                     )
@@ -860,7 +1424,7 @@ server <- function(input, output, session) {
                             downloadButton(
                               "download_resultats_custom",
                               "Télécharger les résultats",
-                              class = "btn btn-primary w-100"
+                              class = "qc-button qc-primary w-100"
                             )
                         ),
 
@@ -873,15 +1437,15 @@ server <- function(input, output, session) {
               )),
 
               # colonne de droite (2/3)
-              div(class = "col-md-8",
+              div(class = "qc-col-md-8",
                   # Visualisation des résultats
-                  div(class = "card",
+                  div(class = "sdg-card",
                       div(
-                        class = "card-header bg-tertiary d-flex justify-content-between align-items-center",
+                        class = "sdg-card-header sdg-card-header-muted bg-tertiary d-flex justify-content-between align-items-center",
                         span("Visualisation des résultats"),
                         tags$a(
                           href = "#collapse_resultat",
-                          `data-bs-toggle` = "collapse",
+                          `data-sdg-toggle` = "collapse",
                           role = "button",
                           icon("chevron-down",class="text-dark")
                         )
@@ -891,7 +1455,7 @@ server <- function(input, output, session) {
                         id = "collapse_resultat",
                         class = "collapse show",
 
-                        div(class = "card-body py-0 fs-5",
+                        div(class = "sdg-card-body py-0 fs-5",
                             plotOutput("resultat_graphique", height = "600px")
                         )
                       )
@@ -905,7 +1469,7 @@ server <- function(input, output, session) {
                 actionButton(
                   "reset_button",
                   "Réinitialiser",
-                  class = "btn btn-danger",
+                  class = "qc-button qc-danger",
                   icon = icon("sync")
                 )
               )
@@ -1046,15 +1610,18 @@ server <- function(input, output, session) {
     req(validation_errors())
     errors <- validation_errors()
 
-    div(class = "mt-1 mb-0",
+    div(class = "",
+        div(class = "d-flex align-items-center sdg-file-name-row",
+            icon("check-circle", class = "me-2"),
+            div(input$file$name)),
+
 
         # Si erreur
         if (length(errors) > 0) {
-          div(class = "alert alert-danger d-flex align-items-center",
-            icon("times-circle", class = "me-2"),
+          div(class = "sdg-validation sdg-validation-error",
             div(
-              tags$strong("Validation échouée — "),
-              paste(length(errors), "erreur(s) détectée(s)")
+              tags$strong("Validation échouée"),
+              tags$div(paste(length(errors), "erreur(s) détectée(s)"))
             )
           )
         }
@@ -1063,11 +1630,10 @@ server <- function(input, output, session) {
         else {
           tagList(
             div(
-              class = "alert alert-success d-flex align-items-center",
-              icon("check-circle", class = "me-2"),
+              class = "sdg-validation sdg-validation-success",
               div(
-                tags$strong("Validation réussie: "),
-                "Les données sont valides"
+                tags$div(tags$strong("Validation réussie:")),
+                tags$div("Les données sont valides")
               )
             )
           )
@@ -1080,15 +1646,15 @@ server <- function(input, output, session) {
     req(validation_errors())
     errors <- validation_errors()
     if (length(errors) > 0){
-      div( class = "alert alert-danger ",
-           tags$strong("Erreurs détectées: "),
-
-        tags$ul( class = "small ps-3 mb-0",
+  div( class = "sdg-validation sdg-validation-error",
+       div(
+           tags$strong("Erreurs détectées"),
+        tags$ul( class = "small ps-3 mb-0 sdg-list-tight",
           lapply(errors, function(error) {
             tags$li(style = "margin-bottom: 1px; padding: 0;", error)
           })
         )
-      )
+      ))
     }
     else {NULL}
   })
@@ -1097,7 +1663,7 @@ server <- function(input, output, session) {
   output$Avertissement_box <- renderUI({
       # Avertissement pour âge moyen
       if (!rv$age_moy_valid) {
-        div(class = "alert alert-warning d-flex align-items-center",
+  div(class = "qc-notice qc-warning alert alert-warning d-flex align-items-center",
           icon("exclamation-triangle", class = "me-2"),
           div(
             tags$strong("Attention: "),
@@ -1106,8 +1672,6 @@ server <- function(input, output, session) {
           )
         )
       }
-
-
     })
 
   # Afficher les autres informations
@@ -1117,11 +1681,10 @@ server <- function(input, output, session) {
 
     # Avertissement pour champ optionnel
     if (length(champ_optionel_absent) > 0) {
-      div( class = "alert alert-info d-flex align-items-center",
-           icon("info-circle", class = "me-2"),
+  div( class = "sdg-validation sdg-validation-info",
       div(
         tags$strong("Champs optionnels absents :"),
-        tags$ul(class = "small ps-3 mb-0",
+        tags$ul(class = "small ps-3 mb-0 sdg-list-tight",
                 lapply(champ_optionel_absent, function(x) {
                   tags$li(style = "margin-bottom: 1px; padding: 0;",x
                   )
@@ -1146,13 +1709,13 @@ server <- function(input, output, session) {
 
           # Section pour choisir le type de simulation
           div(
-            class = "ms-2 me-2 form-section text-primary fw-bold",
-            span("Données climatiques")
+            class = "ms-2 me-2 form-section",
+            tags$label("Données climatiques", class = "control-label text-secondary")
           ),
 
           # Section Radio-buttons
           div(
-            class = "card-body small pt-1 pb-0 mt-0 ps-3 pe-3",
+            class = "sdg-card-body sdg-radio-normal pt-1 pb-0 mt-0 pe-3",
 
             # Cas 1 : âge moyen invalide
             if (!rv$age_moy_valid) {
@@ -1206,7 +1769,7 @@ server <- function(input, output, session) {
               actionButton(
                 "validate_extraction_choice",
                 "Suivant",
-                class = "btn btn-primary w-100 d-flex justify-content-center align-items-center gap-2",
+                class = "qc-button qc-primary w-100 d-flex justify-content-center align-items-center gap-2",
                 icon = icon("arrow-right")
               )
             )
@@ -1329,7 +1892,7 @@ server <- function(input, output, session) {
             actionButton(
               "validate_climat_file",
               "Valider le fichier climatique",
-              class = "btn btn-sm btn-primary",
+              class = "qc-button qc-primary qc-compact",
               icon = icon("check")
             )
           )
@@ -1387,7 +1950,7 @@ server <- function(input, output, session) {
 
             # Section pour l'afficahge des erreurs du fichier climat
             if (length(erreurs_tot) > 0) {
-              div(class = "alert alert-danger mb-3",
+              div(class = "qc-notice qc-error alert alert-danger mb-3",
                 h6(class = "mt-0 mb-2",
                   paste0( "Erreurs dans le fichier climat (",
                     input$climat_tot_file$name,"):"
@@ -1471,7 +2034,7 @@ server <- function(input, output, session) {
           actionButton(
             "extract_climate",
             "Simuler les données climatiques",
-            class = "btn btn-primary w-100",
+            class = "qc-button qc-primary w-100",
             icon = icon("cloud-download-alt")
           )
         ),
@@ -1577,7 +2140,7 @@ server <- function(input, output, session) {
 
       # Afficher les erreurs
       output$error_box_sim <- renderUI({
-          div( class = "alert alert-danger d-flex align-items-center",
+          div( class = "qc-notice qc-error alert alert-danger d-flex align-items-center",
                icon("circle-xmark", class = "me-2"),
                div(
                tags$strong("Vérifiez les coordonnées géographiques: "),
@@ -1627,7 +2190,7 @@ server <- function(input, output, session) {
           downloadButton(
             "download_tot",
             "Climat",
-            class = "btn btn-primary"
+            class = "qc-button qc-primary"
           ),
         )
       ),
@@ -1637,7 +2200,7 @@ server <- function(input, output, session) {
           actionButton(
             "close_extraction",
             "Suivant",
-            class = "btn btn-primary",
+            class = "qc-button qc-primary",
             style = "width: 100%; display: block;"
           )),
       footer = NULL,
@@ -1992,12 +2555,13 @@ server <- function(input, output, session) {
         ),
 
         # Bouton pour lancer la simulation
-        div(  class = "mt-3 mb-3 pe-2",
+  div(  class = "mt-3 mb-3 pe-2",
 
-          actionBttn(
+          actionButton(
             "lancer_simulation",
             "Lancer la simulation",
-            class = "btn btn-primary w-100",
+            class = "qc-button qc-primary",
+            style = "width: 100%;",
             icon = icon("play-circle")
           )
         )
@@ -2124,7 +2688,7 @@ server <- function(input, output, session) {
         uiOutput("modificateur_ui"),
 
         # Button effacer
-        actionButton(class = "btn btn-danger",
+  actionButton(class = "qc-button qc-danger",
           "clear_coupes",
           "Effacer toutes les coupes",
           width= "100%"
@@ -2211,7 +2775,7 @@ server <- function(input, output, session) {
         div(class = "mt-2",
             actionButton("clear_tbe",
               "Effacer les défoliations TBE",
-              class = "btn btn-danger",
+              class = "qc-button qc-danger",
               width = "100%"
             )
         ),
@@ -2684,7 +3248,7 @@ server <- function(input, output, session) {
               actionButton(
                 "close_simulation",
                 "Suivant",
-                class = "btn btn-primary",
+                class = "qc-button qc-primary",
                 style = "width: 100%; display: block;"
               )
             )
@@ -2860,7 +3424,7 @@ server <- function(input, output, session) {
           actionButton(
             "add_grade2",
             "Ajouter Grade 2",
-            class = "btn btn-primary rounded-pill px-4",
+            class = "qc-button qc-primary qc-button-rounded px-4",
             icon = icon("plus-circle"))
       )
       #)
@@ -2889,7 +3453,7 @@ server <- function(input, output, session) {
             actionButton(
               "remove_grade2",
               NULL,
-              class = "btn btn-danger btn-sm rounded-circle",
+              class = "qc-button qc-danger qc-compact qc-button-rounded",
               icon = icon("trash"),
               title = "Supprimer le Grade 2 (et Grade 3 si présent)"
             )
@@ -2943,7 +3507,7 @@ server <- function(input, output, session) {
           actionButton(
             "add_grade3",
             "Ajouter Grade 3",
-            class = "btn btn-primary rounded-pill px-4",
+            class = "qc-button qc-primary qc-button-rounded px-4",
             icon = icon("plus-circle")
           )
       )
@@ -2969,7 +3533,7 @@ server <- function(input, output, session) {
               actionButton(
                 "remove_grade3",
                 NULL,
-                class = "btn btn-danger btn-sm rounded-circle",
+                class = "qc-button qc-danger qc-compact qc-button-rounded",
                 icon = icon("trash"),
                 title = "Supprimer le Grade 3"
               )
@@ -3224,12 +3788,17 @@ server <- function(input, output, session) {
 
         div(class = "d-flex justify-content-center gap-3",
 
-          modalButton("Annuler"),
+          tags$button(
+            type = "button",
+            class = "qc-button qc-tertiary",
+            `data-bs-dismiss` = "modal",
+            "Annuler"
+          ),
           actionButton(
             "confirm_reset",
-            "Oui, Réinitialiser",
-            class = "btn btn-danger",
-            style = "width: 170px;"
+            "Réinitialiser",
+            class = "qc-button qc-danger",
+            style = "min-width: 170px; white-space: nowrap;"
           )
         )
     ),
