@@ -1764,13 +1764,11 @@ server <- function(input, output, session) {
 
             # Section du bouton suivant
             div(
-              #class = "d-flex justify-content-center mt-1 mb-0",
-
               actionButton(
                 "validate_extraction_choice",
-                "Suivant",
-                class = "qc-button qc-primary w-100 d-flex justify-content-center align-items-center gap-2",
-                icon = icon("arrow-right")
+                label = tagList( "Suivant",
+                  icon("arrow-right", class = "ms-1")),
+                class = "qc-button qc-primary mb-2 mt-2"
               )
             )
 
@@ -1806,7 +1804,7 @@ server <- function(input, output, session) {
       output$simulation_message <- renderUI({
 
         div(
-          class = "px-3 p-2 mt-2",
+          class = "p-2",
 
 
           # Paramètre caché
@@ -1821,7 +1819,7 @@ server <- function(input, output, session) {
             )
           ),
 
-          div(class = "fw-bold mb-1 text-primary", "Nombre d'années de simulation (multiple de 10) :"),
+          div(class = "fw-bold mb-1 text-secondary", "Nombre d'années de simulation (multiple de 10)"),
 
           # Choisir l'horizon
           div(class = "mb-2",
@@ -1833,10 +1831,10 @@ server <- function(input, output, session) {
               )
           ),
 
-          div(class = "fw-bold mb-1 text-primary", "Scénario CMIP6 :"),
+          div(class = "fw-bold mb-1 text-secondary", "Scénario CMIP6"),
 
           # Choisir le scénario
-          div(class = "mb-2 small",
+          div(class = "mb-2 sdg-radio-normal",
               radioButtons(
                 "ssp",NULL,
                 choices = list("SSP245" = "SSP245", "SSP370" = "SSP370"),
@@ -1846,7 +1844,7 @@ server <- function(input, output, session) {
 
           # Bouton d'extraction
           div(
-            class = "d-flex justify-content-end mt-2 mb-0",
+            class = "mt-2 mb-0",
             uiOutput("extraction_button_final")
           )
         )
@@ -1859,26 +1857,31 @@ server <- function(input, output, session) {
       output$extraction_button <- renderUI({
 
         div(
-          class = "p-2 px-3 mt-2",
+          class = "mt-3",
 
           # Titre
-          div( class = "fw-bold text-primary mb-2",
+          div( class = "fw-bold text-primary mb-2 ms-2",
             "Importer des données climatiques" ),
 
           # Fichier climat annuel
-          div(class = "mb-2",
+          div(class = "mb-2 ms-2 sdg-fileinput",
               fileInput(
                 "climat_tot_file",
                 "Fichier climat (CSV)",
                 buttonLabel = "Parcourir",
-                placeholder = "Aucun fichier sélectionné",
+                placeholder = "",
                 accept = c( "text/csv", "text/comma-separated-values,text/plain", ".csv")
               )
           ),
+          if (!is.null(input$climat_tot_file$name)) {
+            div(
+                class = "d-flex align-items-center sdg-file-name-row",
+                icon("check-circle", class = "me-2"),
+                div(input$climat_tot_file$name))},
 
           # Choisi le scénario
-          div(class = "fw-bold mb-1 text-primary", "Scénario CMIP6 :"),
-          div(class = "mb-2 small",
+          div(class = "fw-bold mt-2 mb-1 ms-2 text-secondary", "Scénario CMIP6"),
+          div(class = "mb-2 ms-2 sdg-radio-normal",
               radioButtons(
                 "ssp",NULL,
                 choices = list("SSP245" = "SSP245", "SSP370" = "SSP370"),
@@ -1888,11 +1891,11 @@ server <- function(input, output, session) {
 
           # Bouton
           div(
-            class = "d-flex justify-content-end mt-2",
+            class = "d-flex ms-2 me-2 mt-2",
             actionButton(
               "validate_climat_file",
               "Valider le fichier climatique",
-              class = "qc-button qc-primary qc-compact",
+              class = "qc-button qc-primary",
               icon = icon("check")
             )
           )
@@ -2028,18 +2031,9 @@ server <- function(input, output, session) {
     } else {
       # Cas valide
       div(
-        class = "mt-0 w-100 justify-content-center",
+        class = "mt-3 w-100 justify-content-center",
 
-        div(
-          actionButton(
-            "extract_climate",
-            "Simuler les données climatiques",
-            class = "qc-button qc-primary w-100",
-            icon = icon("cloud-download-alt")
-          )
-        ),
-
-        div(  class = "small text-muted text-center mt-1",
+        div(  class = "small text-muted",
 
           paste0(
             "Période : ",
@@ -2048,10 +2042,17 @@ server <- function(input, output, session) {
             " | Scénario : ",
             ifelse(input$ssp == "SSP245", "SSP245", "SSP370")
           )
+        ),
+        
+        div(
+          actionButton(
+            "extract_climate",
+            "Simuler les données climatiques",
+            class = "qc-button qc-primary mt-1 mb-0",
+            icon = icon("cloud-download-alt")
+          )
         )
-
       )
-
     }
   })
 
