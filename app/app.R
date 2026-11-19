@@ -775,6 +775,165 @@ ui <- fluidPage(
       margin-bottom: 2px !important;
     }
 
+    /* Tableau */
+    #contents table.dataTable thead th {
+      background-color: var(--qc-color-blue-medium) !important;
+      color: var(--qc-color-white) !important;
+      border-right: 0 !important;
+      border-left: 0 !important;
+      border-bottom: 0 !important;
+      font-weight: var(--qc-font-weight-bold) !important;
+      font-size: var(--qc-font-size-90) !important;
+      white-space: nowrap;
+    }
+
+    /* Rangée des filtres colonnes : hors bandeau bleu */
+    #contents table.dataTable thead tr.dt-column-filters th {
+      background-color: var(--qc-color-white) !important;
+      color: var(--qc-color-text-primary) !important;
+    }
+
+    /* Laisser de l'espace entre le libellé et les indicateurs de tri */
+    #contents table.dataTable thead > tr > th.sorting,
+    #contents table.dataTable thead > tr > th.sorting_asc,
+    #contents table.dataTable thead > tr > th.sorting_desc,
+    #contents table.dataTable thead > tr > th.sorting_asc_disabled,
+    #contents table.dataTable thead > tr > th.sorting_desc_disabled {
+      padding-right: 34px !important;
+    }
+
+    /* Flèches de tri (DataTables) via Material Symbols (style SDG) */
+    #contents table.dataTable thead > tr > th.sorting:before,
+    #contents table.dataTable thead > tr > th.sorting_asc:before,
+    #contents table.dataTable thead > tr > th.sorting_desc:before,
+    #contents table.dataTable thead > tr > th.sorting_asc_disabled:before,
+    #contents table.dataTable thead > tr > th.sorting_desc_disabled:before {
+      content: 'keyboard_arrow_up' !important;
+      font-family: 'Material Symbols Rounded' !important;
+      font-variation-settings: 'opsz' 40, 'FILL' 0, 'GRAD' 0 !important;
+      color: var(--qc-color-white) !important;
+      font-size: 16px !important;
+      font-weight: normal !important;
+      line-height: 1 !important;
+      opacity: 1 !important;
+      right: 10px !important;
+      left: auto !important;
+    }
+
+    #contents table.dataTable thead > tr > th.sorting:after,
+    #contents table.dataTable thead > tr > th.sorting_asc:after,
+    #contents table.dataTable thead > tr > th.sorting_desc:after,
+    #contents table.dataTable thead > tr > th.sorting_asc_disabled:after,
+    #contents table.dataTable thead > tr > th.sorting_desc_disabled:after {
+      content: 'keyboard_arrow_down' !important;
+      font-family: 'Material Symbols Rounded' !important;
+      font-variation-settings: 'opsz' 40, 'FILL' 0, 'GRAD' 0 !important;
+      color: var(--qc-color-white) !important;
+      font-size: 16px !important;
+      font-weight: normal !important;
+      line-height: 1 !important;
+      opacity: 1 !important;
+      right: 10px !important;
+      left: auto !important;
+    }
+
+    #contents table.dataTable thead > tr > th.sorting_asc:before {
+      opacity: 1 !important;
+    }
+
+    #contents table.dataTable thead > tr > th.sorting_asc:after {
+      opacity: .2 !important;
+    }
+
+    #contents table.dataTable thead > tr > th.sorting_desc:before {
+      opacity: .2 !important;
+    }
+
+    #contents table.dataTable thead > tr > th.sorting_desc:after {
+      opacity: 1 !important;
+    }
+
+    #contents table.dataTable tbody > tr:first-child > td {
+      border-top: 2px solid var(--qc-color-grey-light) !important;
+    }
+
+    /* Défilement horizontal */
+    #contents .dataTables_scrollBody {
+      overflow-x: scroll !important;
+      scrollbar-gutter: stable;
+      border-bottom: 1px solid var(--qc-color-grey-light);
+    }
+
+    #contents .dataTables_scrollBody::-webkit-scrollbar {
+      height: 10px;
+    }
+
+    #contents .dataTables_scrollBody::-webkit-scrollbar-thumb {
+      background: var(--qc-color-blue-piv);
+      border-radius: 8px;
+    }
+
+    #contents .dataTables_info,
+    #contents .dataTables_paginate {
+      font-size: var(--qc-font-size-90) !important;
+      line-height: var(--qc-line-height-90) !important;
+    }
+
+    #contents .dataTables_paginate .paginate_button {
+      margin: 0 0 !important;
+      padding: 0 0 !important;
+      min-width: auto !important;
+      font-size: var(--qc-font-size-200) !important;
+      line-height: var(--qc-line-height-200) !important;
+    }
+
+    /* Bootstrap/DataTables: le texte des pages est souvent dans .page-link */
+    #contents .dataTables_wrapper .dataTables_paginate .paginate_button .page-link,
+    #contents .dataTables_wrapper .dataTables_paginate .page-link {
+      font-size: var(--qc-font-size-90) !important;
+      line-height: var(--qc-line-height-90) !important;
+    }
+
+    #contents .dataTables_paginate .paginate_button.previous,
+    #contents .dataTables_paginate .paginate_button.next {
+      display: none !important;
+    }
+
+    #contents .dataTables_filter {
+      margin-top: var(--qc-spacer-sm);
+    }
+
+    /* Champ de recherche (coin supérieur droit) : encadré complet */
+    #contents .dataTables_filter input {
+      border: 1px solid var(--qc-color-grey-light) !important;
+      border-radius: 0 !important;
+      background-color: var(--qc-color-white) !important;
+      color: var(--qc-color-text-primary) !important;
+      box-shadow: none !important;
+      padding: 6px 10px 6px 40px !important;
+      min-height: 36px;
+    }
+
+   /* Placement icon */
+    #contents .dataTables_filter label {
+      position: relative;
+      display: inline-block;
+    }
+
+    #contents .dataTables_filter label::before {
+      content: 'search';
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: 'Material Symbols Rounded';
+      font-size: 25px;
+      line-height: 1;
+      color: var(--qc-color-text-primary);
+      pointer-events: none;
+      z-index: 1;
+    }
+
     @media (max-width: 768px) {
       .sdg-two-cols {
         flex-direction: column;
@@ -1514,15 +1673,42 @@ server <- function(input, output, session) {
               options = list(
                 pageLength = 10,
                 scrollX = TRUE,
+                autoWidth = TRUE,
                 dom = 'Bfrtip',
                 buttons = c('copy', 'csv', 'excel'),
-                language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/French.json')
+                language = list(
+                  url = 'https://cdn.datatables.net/plug-ins/1.10.11/i18n/French.json',
+                  search = "",
+                  searchPlaceholder = "Rechercher"
+                )
               ),
               rownames = FALSE,
-              filter = 'top',
-              class = 'cell-border stripe compact small fs-5'
+              filter = 'none',
+              class = 'stripe hover nowrap',
+              callback = JS(
+                "var api = table;",
+                "var $container = $(api.table().container());",
+                "var $head = $container.find('.dataTables_scrollHead thead');",
+                "if ($head.length === 0) { $head = $(api.table().header()).closest('thead'); }",
+                "if ($head.find('tr.dt-column-filters').length === 0) {",
+                "  var $row = $('<tr class=\"dt-column-filters\"></tr>');",
+                "  api.columns().every(function(colIdx) {",
+                "    var $th = $('<th></th>');",
+                "    var $input = $('<input type=\"text\" class=\"form-control form-control-sm\" placeholder=\"Filtrer\" />');",
+                "    $input.on('keyup change', function() {",
+                "      var val = this.value || '';",
+                "      if (api.column(colIdx).search() !== val) {",
+                "        api.column(colIdx).search(val).draw();",
+                "      }",
+                "    });",
+                "    $th.append($input);",
+                "    $row.append($th);",
+                "  });",
+                "  $head.append($row);",
+                "}"
+              )
     )
-  })
+  }, server = FALSE)
 
   rv <- reactiveValues(
     data_valid = FALSE,
@@ -2043,7 +2229,7 @@ server <- function(input, output, session) {
             ifelse(input$ssp == "SSP245", "SSP245", "SSP370")
           )
         ),
-        
+
         div(
           actionButton(
             "extract_climate",
